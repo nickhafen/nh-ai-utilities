@@ -626,6 +626,23 @@ tr[data-status="timeout"] td {
   border: 1px solid #fecaca;
 }
 
+.tool-hint {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.tool-link {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.tool-link:hover {
+  color: var(--primary-hover);
+}
+
 .disclaimer {
   font-size: 0.78rem;
   color: var(--muted);

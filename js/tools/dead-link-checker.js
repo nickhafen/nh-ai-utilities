@@ -66,6 +66,7 @@
                 <span class="panel-title">URLs to check</span>
               </div>
               <div class="panel-body">
+                <p class="tool-hint">Need to pull URLs from a document first? Use the <a class="tool-link" href="#url-extractor">URL Extractor</a>.</p>
                 <textarea
                   class="textarea"
                   data-url-input
@@ -95,9 +96,10 @@
           </div>
 
           <p class="disclaimer">
-            <strong>Note:</strong> Browser security limits what we can see.
-            <em>Reachable</em> means the domain responded — not that the specific page exists.
-            <em>Unreachable</em> means no response at all, which often points to a hallucinated or broken URL.
+            <strong>Note:</strong> This tool can only detect whether a server responded — not what it said back.
+            A URL returning a "404 Not Found" error will still show as <em>Reachable</em> because a server did respond.
+            <em>Unreachable</em> means no server responded at all, which is a strong signal of a hallucinated or completely broken URL.
+            To catch 404s specifically, a server-side proxy would be required — which would mean sending URLs to an external service rather than checking them locally.
           </p>
         </div>
       `;
