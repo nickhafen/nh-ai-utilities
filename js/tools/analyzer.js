@@ -218,45 +218,30 @@
       function renderInput() {
         root.innerHTML = `
           <div class="tool-view">
-            <div class="input-panels">
-              <section class="panel input-panel">
-                <div class="panel-header">
-                  <span class="panel-title">Upload</span>
-                  
+            <section class="panel input-panel">
+              <div class="panel-header">
+                <span class="panel-title">Document</span>
+              </div>
+              <div class="panel-body">
+                <div class="drop-bar" data-drop-area>
+                  <span class="drop-icon">DOCX</span>
+                  <span class="primary-text">Drop a .docx file here or click to browse</span>
                 </div>
-                <div class="panel-body">
-                  <div class="drop-area" data-drop-area>
-                    <div class="drop-icon">DOCX</div>
-                    <p class="primary-text">Drop a .docx file here or click to browse</p>
-                    
-                  </div>
-                  <input type="file" accept=".docx" data-file-input hidden>
-                </div>
-              </section>
-
-              <div class="input-or">or</div>
-
-              <section class="panel input-panel">
-                <div class="panel-header">
-                  <span class="panel-title">Paste</span>
-                  
-                </div>
-                <div class="panel-body">
-                  <div
-                    class="rich-input"
-                    data-paste-area
-                    contenteditable="true"
-                    role="textbox"
-                    aria-multiline="true"
-                    data-placeholder="Paste text here…"
-                  ></div>
-                </div>
-                <div class="panel-footer">
-                  <button class="btn btn-primary" data-analyze-paste>Analyze</button>
-                  <button class="btn btn-subtle" data-clear-paste>Clear</button>
-                </div>
-              </section>
-            </div>
+                <input type="file" accept=".docx" data-file-input hidden>
+                <div
+                  class="rich-input"
+                  data-paste-area
+                  contenteditable="true"
+                  role="textbox"
+                  aria-multiline="true"
+                  data-placeholder="Or paste text here…"
+                ></div>
+              </div>
+              <div class="panel-footer">
+                <button class="btn btn-primary" data-analyze-paste>Analyze</button>
+                <button class="btn btn-subtle" data-clear-paste>Clear</button>
+              </div>
+            </section>
 
             <div class="configure-row">
               <button class="btn btn-subtle configure-toggle" data-toggle-tags aria-expanded="false">
@@ -436,8 +421,7 @@
                   <span class="count-pill count-pill-bad" data-pill-bad ${bad ? "" : "hidden"}>${bad} unreachable</span>
                 </div>
                 <div class="panel-actions">
-                  <button class="btn btn-subtle" data-copy-urls>Copy URLs</button>
-                  <button class="btn btn-secondary" data-check-links ${checkingLinks ? "disabled" : ""}>${checkingLinks ? "Checking…" : "Check Links"}</button>
+                  <button class="btn btn-secondary" data-copy-urls>Copy URLs</button>
                   <div class="export-wrap">
                     <button class="btn btn-secondary" data-export-toggle>Export ▾</button>
                     <div class="export-menu" data-export-menu hidden>
@@ -451,10 +435,10 @@
                 <table>
                   <thead>
                     <tr>
-                      <th class="col-text">Visible Text</th>
-                      <th class="col-url">URL</th>
-                      <th class="col-flag">AI Flag</th>
-                      <th class="col-status">Status</th>
+                      <th class="col-text">Visible Text <span class="col-info" data-tooltip="The anchor text of the link as it appears in the document.">i</span></th>
+                      <th class="col-url">URL <span class="col-info" data-tooltip="The full destination URL of each link.">i</span></th>
+                      <th class="col-flag">AI Flag <span class="col-info" data-tooltip="Flagged if the URL contains a known AI platform tracking tag (e.g. utm_source=chatgpt.com). Use 'Configure AI URL tags' to customize the list.">i</span></th>
+                      <th class="col-status">Status <span class="col-info" data-tooltip="Whether the URL responded when checked. 'Reachable' means a server responded — not that the page exists (a 404 still shows as Reachable). Some legitimate links redirected by services like LinkedIn or Google may also show as Unreachable.">i</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -464,11 +448,6 @@
               </div>
             </section>
 
-            <p class="disclaimer">
-              <strong>Status note:</strong> This tool can only detect whether a server responded — not what it said back.
-              A URL returning a "404 Not Found" will still show as <em>Reachable</em>.
-              Some legitimate links wrapped or redirected by services like LinkedIn or Google may show as <em>Unreachable</em> — always double-check flagged results.
-            </p>
           </div>
         `;
 
@@ -515,12 +494,13 @@
           renderInput();
         });
 
-        $("[data-copy-urls]", root).addEventListener("click", async () => {
+        $("[data-copy-urls]", root).addEventListener("click", async (e) => {
           await copyText(results.map(r => r.url).join("\n"));
-        });
-
-        $("[data-check-links]", root).addEventListener("click", () => {
-          if (!checkingLinks) runLinkCheck();
+          const btn = e.currentTarget;
+          const orig = btn.textContent;
+          btn.textContent = "Copied!";
+          btn.disabled = true;
+          setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
         });
 
         const exportToggle = $("[data-export-toggle]", root);
@@ -553,8 +533,6 @@
 
       async function runLinkCheck() {
         checkingLinks = true;
-        const btn = $("[data-check-links]", root);
-        if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
 
         results.forEach((r, i) => {
           if (r.status === "pending") {
@@ -575,7 +553,6 @@
         await Promise.all(Array.from({ length: Math.min(CONCURRENCY, results.length) }, worker));
 
         checkingLinks = false;
-        if (btn) { btn.disabled = false; btn.textContent = "Check Links"; }
 
         if (sessionId) {
           ns.history.update(sessionId, { results: results.map(r => ({ ...r })) });
