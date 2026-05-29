@@ -143,7 +143,7 @@
   function toCSV(rows) {
     const esc = v => `"${String(v || "").replace(/"/g, '""')}"`;
     const lines = [
-      ["Visible Text", "URL", "AI Flag", "Status"].map(esc).join(","),
+      ["Visible Text", "Destination URL", "AI Flag", "Status"].map(esc).join(","),
       ...rows.map(r => [
         r.visibleText,
         r.url,
@@ -222,13 +222,13 @@
               <section class="panel input-panel">
                 <div class="panel-header">
                   <span class="panel-title">Upload</span>
-                  <span class="hint">.docx — full hyperlink detection</span>
+                  
                 </div>
                 <div class="panel-body">
                   <div class="drop-area" data-drop-area>
                     <div class="drop-icon">DOCX</div>
-                    <p class="primary-text">Drop a file here or click to browse</p>
-                    <p class="hint">Reads embedded hyperlinks from the document's internal structure</p>
+                    <p class="primary-text">Drop a .docx file here or click to browse</p>
+                    
                   </div>
                   <input type="file" accept=".docx" data-file-input hidden>
                 </div>
@@ -239,7 +239,7 @@
               <section class="panel input-panel">
                 <div class="panel-header">
                   <span class="panel-title">Paste</span>
-                  <span class="hint">Rich text — extracts hyperlinks + plain URLs</span>
+                  
                 </div>
                 <div class="panel-body">
                   <div
@@ -260,7 +260,7 @@
 
             <div class="configure-row">
               <button class="btn btn-subtle configure-toggle" data-toggle-tags aria-expanded="false">
-                <span class="configure-icon" aria-hidden="true">▶</span> Configure AI tags
+                <span class="configure-icon" aria-hidden="true">▶</span> Configure AI URL tags
               </button>
               <div class="configure-body" data-tags-body hidden>
                 <p class="hint" style="margin-bottom:0.75rem">URLs containing any of these strings will be flagged in the AI Flag column.</p>
@@ -397,6 +397,7 @@
         sourceLabel = label;
         results = applyTags(links, tags);
         sessionId = `session-${Date.now()}`;
+        checkingLinks = true; // pre-set so button renders as disabled immediately
 
         ns.history.add({
           id: sessionId,
@@ -408,6 +409,7 @@
         });
 
         renderResults();
+        runLinkCheck(); // start automatically
       }
 
       // ── Results phase ───────────────────────────────────────────────────
@@ -423,7 +425,7 @@
                 <span aria-hidden="true">📄</span>
                 <span title="${escapeHtml(sourceLabel)}">${escapeHtml(sourceLabel)}</span>
               </div>
-              <button class="btn btn-secondary" data-new-analysis>New Analysis</button>
+              <button class="btn btn-secondary" data-new-analysis>New Document</button>
             </div>
 
             <section class="panel results-panel">
@@ -475,7 +477,7 @@
 
       function rowHtml(r, i) {
         const flagCell = r.flag
-          ? `<span class="link-badge badge-flagged">AI Tag</span>`
+          ? `<span class="flag-icon" title="AI tracking tag detected" aria-label="AI tracking tag detected">!</span>`
           : `<span class="cell-dash">—</span>`;
         const urlCell = r.flag
           ? highlightMatches(r.url, r.flaggedTags)
