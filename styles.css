@@ -574,6 +574,68 @@ mark {
   border: 1px solid var(--success-border);
 }
 
+/* ── Dead link checker ── */
+
+.col-status {
+  width: 8rem;
+  white-space: nowrap;
+}
+
+.link-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.badge-pending {
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.badge-reachable {
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+}
+
+.badge-unreachable {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.badge-timeout {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
+
+tr[data-status="unreachable"] td,
+tr[data-status="timeout"] td {
+  background: #fef9f9;
+}
+
+.count-pill-warn {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+
+.disclaimer {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.disclaimer strong {
+  color: var(--muted-strong);
+}
+
 /* ── Responsive ── */
 
 @media (max-width: 768px) {
