@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Utilities</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='38' cy='38' r='26' fill='none' stroke='%231a73e8' stroke-width='12'/><line x1='57' y1='57' x2='84' y2='84' stroke='%231a73e8' stroke-width='12' stroke-linecap='round'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='38' cy='38' r='26' fill='none' stroke='%232563eb' stroke-width='12'/><line x1='57' y1='57' x2='84' y2='84' stroke='%232563eb' stroke-width='12' stroke-linecap='round'/></svg>">
   <link rel="stylesheet" href="styles.css">
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script defer src="js/shared/dom.js"></script>
@@ -16,15 +16,10 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="app-header">
-      <div>
-        <p class="eyebrow">Local browser tools</p>
-        <h1>AI Utilities</h1>
-        <p class="header-copy">Small helpers for checking documents and preparing course materials for AI workflows.</p>
-      </div>
-      <nav id="tool-nav" class="tool-tabs" role="tablist" aria-label="Utility tools"></nav>
-    </header>
-
+    <aside class="sidebar">
+      <div class="sidebar-brand">AI Utilities</div>
+      <nav id="tool-nav" class="sidebar-nav" role="tablist" aria-label="Utility tools"></nav>
+    </aside>
     <main id="tool-root" class="tool-root"></main>
   </div>
 </body>

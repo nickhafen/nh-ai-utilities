@@ -16,7 +16,7 @@
 
   ns.registerTool({
     id: "ai-link-checker",
-    name: "AI Link Checker",
+    name: "Link Checker",
     description: "Scan .docx files for AI platform URL tags.",
     render(root) {
       let tags = [...DEFAULT_TAGS];
@@ -24,38 +24,47 @@
       let loadedFilename = "";
 
       root.innerHTML = `
-        <div class="tool-heading">
-          <div>
-            <h2>AI Link Checker</h2>
-            <p>Scan .docx hyperlinks and visible text for AI platform tracking tags.</p>
+        <div class="tool-view">
+          <div class="utility-grid checker-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <span class="panel-title">Text to flag</span>
+              </div>
+              <div class="panel-body">
+                <div class="tags-row" data-tags-list></div>
+                <div class="add-row">
+                  <input class="text-input" data-tag-input type="text" placeholder="Add a tag…">
+                  <button class="btn btn-secondary" data-add-tag>Add</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" data-drop-card>
+              <div class="panel-header">
+                <span class="panel-title">Document</span>
+                <span class="hint">Processed locally — nothing is uploaded.</span>
+              </div>
+              <div class="panel-body">
+                <div class="drop-area" data-drop-area>
+                  <div class="drop-icon" aria-hidden="true">DOCX</div>
+                  <p class="primary-text">Drop a file here or click to browse</p>
+                </div>
+                <input data-file-input type="file" accept=".docx" hidden>
+              </div>
+            </section>
           </div>
+
+          <section class="panel results-panel" data-results-card hidden>
+            <div class="panel-header">
+              <span class="panel-title">Results</span>
+              <div class="panel-actions">
+                <button class="btn btn-secondary" data-rerun>Re-run</button>
+                <button class="btn btn-subtle" data-reset>New file</button>
+              </div>
+            </div>
+            <div class="panel-body" data-results-content></div>
+          </section>
         </div>
-
-        <section class="card">
-          <h3>Tags to detect</h3>
-          <div class="tags-row" data-tags-list></div>
-          <div class="add-row">
-            <input class="text-input" data-tag-input type="text" placeholder="e.g. utm_source=claude.ai">
-            <button class="btn btn-primary" data-add-tag>Add</button>
-          </div>
-        </section>
-
-        <section class="card" data-drop-card>
-          <div class="drop-area" data-drop-area>
-            <div class="drop-icon" aria-hidden="true">DOCX</div>
-            <p class="primary-text">Drop a <strong>.docx</strong> file here, or click to browse</p>
-            <p class="hint">Your file stays in this browser.</p>
-          </div>
-          <input data-file-input type="file" accept=".docx" hidden>
-        </section>
-
-        <section class="card" data-results-card hidden>
-          <div data-results-content></div>
-          <div class="reset-row">
-            <button class="btn btn-primary" data-rerun>Re-run search</button>
-            <button class="btn btn-secondary" data-reset>Check another file</button>
-          </div>
-        </section>
       `;
 
       const tagsList = $("[data-tags-list]", root);

@@ -1,6 +1,6 @@
 (function () {
   const ns = window.AiUtilities = window.AiUtilities || {};
-  const { $, escapeHtml, extractUrls, formatUrls, copyText } = ns;
+  const { $, extractUrls, formatUrls, copyText } = ns;
 
   const BLOCK_TAGS = new Set([
     "address",
@@ -123,66 +123,58 @@
 
   ns.registerTool({
     id: "url-extractor",
-    name: "NotebookLM URL Extractor",
+    name: "URL Extractor",
     description: "Extract copy-ready URLs from pasted text.",
     render(root) {
       let urls = [];
       let outputFormat = "lines";
 
       root.innerHTML = `
-        <div class="tool-heading">
-          <div>
-            <h2>NotebookLM URL Extractor</h2>
-            <p>Paste syllabus text, then copy the source URLs in the format NotebookLM accepts.</p>
-          </div>
-        </div>
-
-        <div class="utility-grid">
-          <section class="card">
-            <div class="field">
-              <label for="source-text">Source text</label>
-              <div
-                id="source-text"
-                class="text-input rich-input"
-                data-source-text
-                contenteditable="true"
-                role="textbox"
-                aria-multiline="true"
-                data-placeholder="Paste syllabus text, copied Google Docs or Word content, website text, or markdown here"
-              ></div>
-            </div>
-            <div class="reset-row">
-              <button class="btn btn-secondary" data-clear>Clear</button>
-            </div>
-          </section>
-
-          <section class="card">
-            <div class="section-head">
-              <h3>Extracted URLs</h3>
-              <span class="count-pill" data-count>0 found</span>
-            </div>
-
-            <div class="actions-row">
-              <div class="segmented" role="group" aria-label="Output format">
-                <button data-format="lines" aria-pressed="true">Lines</button>
-                <button data-format="commas" aria-pressed="false">Commas</button>
+        <div class="tool-view">
+          <div class="utility-grid">
+            <section class="panel">
+              <div class="panel-header">
+                <span class="panel-title">Source Text</span>
               </div>
-              <button class="btn btn-primary" data-copy disabled>Copy URLs</button>
-            </div>
+              <div class="panel-body">
+                <div
+                  id="source-text"
+                  class="rich-input"
+                  data-source-text
+                  contenteditable="true"
+                  role="textbox"
+                  aria-multiline="true"
+                  data-placeholder="Paste text here…"
+                ></div>
+              </div>
+              <div class="panel-footer">
+                <button class="btn btn-subtle" data-clear>Clear</button>
+              </div>
+            </section>
 
-            <div class="field output-field">
-              <label for="url-output">Output</label>
-              <textarea id="url-output" class="textarea output" data-url-output readonly></textarea>
-            </div>
-            <p class="status-note" data-status>Paste text to begin.</p>
-            <ol class="url-list" data-url-list></ol>
-          </section>
+            <section class="panel">
+              <div class="panel-header">
+                <span class="panel-title">Extracted URLs</span>
+                <div class="panel-actions">
+                  <span class="count-pill" data-count>0 found</span>
+                  <div class="segmented" role="group" aria-label="Output format">
+                    <button data-format="lines" aria-pressed="true">Lines</button>
+                    <button data-format="commas" aria-pressed="false">Commas</button>
+                  </div>
+                  <button class="btn btn-primary" data-copy disabled>Copy</button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <p class="status-note" data-status>Paste text to begin.</p>
+                <textarea class="textarea output" data-url-output readonly></textarea>
+              </div>
+            </section>
+          </div>
         </div>
       `;
 
       const sourceText = $("[data-source-text]", root);
       const urlOutput = $("[data-url-output]", root);
-      const urlList = $("[data-url-list]", root);
       const count = $("[data-count]", root);
       const copyButton = $("[data-copy]", root);
       const clearButton = $("[data-clear]", root);
@@ -207,8 +199,6 @@
             ? "Comma-separated output is ready."
             : "Line-separated output is ready.";
         }
-
-        urlList.innerHTML = urls.map((url) => `<li>${escapeHtml(url)}</li>`).join("");
       }
 
       function update() {
