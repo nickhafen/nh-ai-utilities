@@ -901,67 +901,47 @@ tr[data-row] td {
   color: #dc2626;
 }
 
-/* ── Column info icons + tooltips ── */
+/* ── Column guide ── */
 
-.col-info {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
+.column-guide {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.375rem 2rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg);
   border: 1px solid var(--border);
-  color: var(--muted);
-  font-size: 0.6rem;
-  font-weight: 700;
-  font-style: italic;
-  cursor: default;
-  position: relative;
-  margin-left: 0.25rem;
-  vertical-align: middle;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.column-guide > div {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.column-guide dt {
+  font-weight: 600;
+  color: var(--muted-strong);
+  white-space: nowrap;
   flex-shrink: 0;
-  text-transform: none;
-  letter-spacing: 0;
 }
 
-.col-info::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  bottom: calc(100% + 0.375rem);
-  left: 50%;
-  transform: translateX(-50%);
-  background: #1f2937;
-  color: #f9fafb;
-  font-size: 0.72rem;
+.column-guide dt::after {
+  content: " —";
   font-weight: 400;
-  font-style: normal;
-  line-height: 1.45;
-  padding: 0.5rem 0.625rem;
-  border-radius: 5px;
-  width: 15rem;
-  white-space: normal;
-  z-index: 200;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s;
-  text-align: left;
-  text-transform: none;
-  letter-spacing: 0;
 }
 
-.col-info:hover::after {
-  opacity: 1;
+.column-guide dd {
+  color: var(--muted);
 }
 
-/* Right-align tooltip on the two rightmost columns to avoid overflow */
-.col-flag .col-info::after,
-.col-status .col-info::after {
-  left: auto;
-  right: 0;
-  transform: none;
+.column-guide code {
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.9em;
 }
 
-/* ── Dead link checker ── */
+/* ── Status badges ── */
 
 .col-status {
   width: 8rem;
@@ -1002,42 +982,10 @@ tr[data-row] td {
   border: 1px solid var(--warning-border);
 }
 
-tr[data-status="unreachable"] td,
-tr[data-status="timeout"] td {
-  background: #fef9f9;
-}
-
 .count-pill-warn {
   background: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
-}
-
-.tool-hint {
-  font-size: 0.78rem;
-  color: var(--muted);
-  margin-bottom: 0.75rem;
-}
-
-.tool-link {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
-
-.tool-link:hover {
-  color: var(--primary-hover);
-}
-
-.disclaimer {
-  font-size: 0.78rem;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.disclaimer strong {
-  color: var(--muted-strong);
 }
 
 /* ── Responsive ── */

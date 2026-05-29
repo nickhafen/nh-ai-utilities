@@ -413,6 +413,13 @@
               <button class="btn btn-secondary" data-new-analysis>New Document</button>
             </div>
 
+            <dl class="column-guide">
+              <div><dt>Visible Text</dt><dd>The anchor text of the link as it appears in the document.</dd></div>
+              <div><dt>URL</dt><dd>The full destination URL.</dd></div>
+              <div><dt>AI Flag</dt><dd>Flagged if the URL contains a known AI platform tracking tag (e.g. <code>utm_source=chatgpt.com</code>). Customize the tag list above.</dd></div>
+              <div><dt>Status</dt><dd>Whether the URL responded when checked. <em>Reachable</em> means a server responded — not that the page exists (a 404 still shows as Reachable). Some legitimate links redirected by services like LinkedIn or Google may also show as Unreachable.</dd></div>
+            </dl>
+
             <section class="panel results-panel">
               <div class="panel-header">
                 <div class="panel-actions">
@@ -435,10 +442,10 @@
                 <table>
                   <thead>
                     <tr>
-                      <th class="col-text">Visible Text <span class="col-info" data-tooltip="The anchor text of the link as it appears in the document.">i</span></th>
-                      <th class="col-url">URL <span class="col-info" data-tooltip="The full destination URL of each link.">i</span></th>
-                      <th class="col-flag">AI Flag <span class="col-info" data-tooltip="Flagged if the URL contains a known AI platform tracking tag (e.g. utm_source=chatgpt.com). Use 'Configure AI URL tags' to customize the list.">i</span></th>
-                      <th class="col-status">Status <span class="col-info" data-tooltip="Whether the URL responded when checked. 'Reachable' means a server responded — not that the page exists (a 404 still shows as Reachable). Some legitimate links redirected by services like LinkedIn or Google may also show as Unreachable.">i</span></th>
+                      <th class="col-text">Visible Text</th>
+                      <th class="col-url">URL</th>
+                      <th class="col-flag">AI Flag</th>
+                      <th class="col-status">Status</th>
                     </tr>
                   </thead>
                   <tbody>
