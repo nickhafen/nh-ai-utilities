@@ -98,8 +98,8 @@
           <p class="disclaimer">
             <strong>Note:</strong> This tool can only detect whether a server responded — not what it said back.
             A URL returning a "404 Not Found" error will still show as <em>Reachable</em> because a server did respond.
-            <em>Unreachable</em> means no server responded at all, which is a strong signal of a hallucinated or completely broken URL.
-            To catch 404s specifically, a server-side proxy would be required — which would mean sending URLs to an external service rather than checking them locally.
+            <em>Unreachable</em> doesn't always mean a link is hallucinated — some legitimate links get wrapped or redirected by services like LinkedIn or Google, which can cause them to fail here.
+            Always double-check flagged links before drawing conclusions.
           </p>
         </div>
       `;
