@@ -197,6 +197,13 @@
         resultData = [];
       });
 
+      // Accept URLs handed off from the URL Extractor
+      if (ns.pendingUrls) {
+        urlInput.value = ns.pendingUrls;
+        ns.pendingUrls = null;
+        runCheck();
+      }
+
       copyBadButton.addEventListener("click", async () => {
         const bad = resultData
           .filter((r) => r.status === "unreachable" || r.status === "timeout")

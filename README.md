@@ -25,3 +25,17 @@ Open `index.html` directly in any modern browser. No build step or server requir
 - **Footnote extractor** — pull footnote and endnote text from `.docx` files, not just hyperlinks.
 - **AI policy clause builder** — generate syllabus language for AI use policies from a short form.
 - **AI use disclosure generator** — help students produce a standardized disclosure statement to attach to submissions.
+
+## Architectural Notes
+
+### Unified document input
+
+If future tools continue to center on documents (files or pasted text), it may be worth consolidating the input layer: users upload or paste once, all extraction happens upfront, and individual analyses can be run on demand from a shared result set. This would eliminate the need to re-upload or manually move data between tools.
+
+A few open questions worth resolving before committing to that design:
+
+- **File vs. paste produce different data.** Uploading a `.docx` gives access to raw XML internals, including hyperlinks stored in relationship files that aren't always preserved when pasting from Word. A unified input would need to handle both paths, and results from a paste would be less complete for link detection.
+- **Not all tools need a document.** Tools like an AI policy clause builder or disclosure generator are form-based and don't take a document as input. A document-first architecture would create a two-class system requiring separate handling for those tools.
+- **Per-tool configuration.** Some tools (like the Link Checker's tag list) have their own settings. In a shared-input model, that configuration would need a clear home in the UI.
+
+The current approach bridges tools where it matters most — the URL Extractor's "Check Links →" button hands its results directly to the Dead Links checker — without requiring a full architectural overhaul.

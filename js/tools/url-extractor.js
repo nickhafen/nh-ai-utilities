@@ -162,6 +162,7 @@
                     <button data-format="commas" aria-pressed="false">Commas</button>
                   </div>
                   <button class="btn btn-primary" data-copy disabled>Copy</button>
+                  <button class="btn btn-secondary" data-send-to-dead-links disabled>Check Links →</button>
                 </div>
               </div>
               <div class="panel-body">
@@ -177,6 +178,7 @@
       const urlOutput = $("[data-url-output]", root);
       const count = $("[data-count]", root);
       const copyButton = $("[data-copy]", root);
+      const sendButton = $("[data-send-to-dead-links]", root);
       const clearButton = $("[data-clear]", root);
       const status = $("[data-status]", root);
 
@@ -189,6 +191,7 @@
         urlOutput.value = text;
         count.textContent = `${urls.length} found`;
         copyButton.disabled = urls.length === 0;
+        sendButton.disabled = urls.length === 0;
 
         if (!sourceText.textContent.trim() && !sourceText.querySelector("a[href]")) {
           status.textContent = "Paste text to begin.";
@@ -223,6 +226,12 @@
         update();
         sourceText.focus();
       });
+      sendButton.addEventListener("click", () => {
+        if (!urls.length) return;
+        ns.pendingUrls = formatUrls(urls, "lines");
+        window.location.hash = "dead-link-checker";
+      });
+
       copyButton.addEventListener("click", async () => {
         if (!urls.length) return;
 
