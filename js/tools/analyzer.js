@@ -48,18 +48,13 @@
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const tag = node.tagName.toLowerCase();
-    if (tag === "br") {
-      frag.appendChild(document.createTextNode("\n"));
-      return;
-    }
+    if (tag === "br") { frag.appendChild(document.createTextNode("\n")); return; }
     if (tag === "a") {
       const href = cleanUrl(node.getAttribute("href") || "");
       const label = node.textContent || href;
       if (href) {
         const a = document.createElement("a");
-        a.href = href;
-        a.textContent = label;
-        a.tabIndex = -1;
+        a.href = href; a.textContent = label; a.tabIndex = -1;
         frag.appendChild(a);
       } else {
         frag.appendChild(document.createTextNode(label));
@@ -105,14 +100,12 @@
   function extractFromPaste(html, plain) {
     const seen = new Set();
     const links = [];
-
     function add(visibleText, url) {
       const clean = cleanUrl(url);
       if (!clean || clean.startsWith("#") || seen.has(clean)) return;
       seen.add(clean);
       links.push({ visibleText: visibleText.trim(), url: clean });
     }
-
     if (html) {
       const doc = new DOMParser().parseFromString(html, "text/html");
       doc.querySelectorAll("a[href]").forEach(a => {
@@ -186,6 +179,25 @@
     return `Pasted text: "${preview}${preview.length < first.length ? "…" : ""}"`;
   }
 
+  // ── Copy with visual feedback ─────────────────────────────────────────────
+
+  async function copyWithFeedback(btn, getText) {
+    const orig = btn.textContent;
+    btn.disabled = true;
+    try {
+      await copyText(getText());
+      btn.textContent = "✓ Copied";
+      btn.classList.add("btn-success");
+    } catch {
+      btn.textContent = "✗ Failed";
+    }
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove("btn-success");
+      btn.disabled = false;
+    }, 2000);
+  }
+
   // ── Tool registration ─────────────────────────────────────────────────────
 
   ns.registerTool({
@@ -198,6 +210,9 @@
       let sessionId = null;
       let checkingLinks = false;
       let tagsExpanded = false;
+      let activeFilter = null; // null | "flagged" | "bad"
+      let sortCol = null;      // null | "flag" | "status"
+      let sortDir = "asc";
 
       // Restore from history if navigated here with a pending session
       if (ns.pendingSession) {
@@ -222,24 +237,26 @@
               <div class="panel-header">
                 <span class="panel-title">Document</span>
               </div>
-              <div class="panel-body">
-                <div class="drop-bar" data-drop-area>
-                  <span class="drop-icon">DOCX</span>
-                  <span class="primary-text">Drop a .docx file here or click to browse</span>
-                </div>
-                <input type="file" accept=".docx" data-file-input hidden>
+              <div class="upload-section" data-drop-area>
+                <div class="drop-icon">DOCX</div>
+                <p class="primary-text">Drop a .docx file here or click to browse</p>
+              </div>
+              <input type="file" accept=".docx" data-file-input hidden>
+              <div class="input-section-divider"><span>or</span></div>
+              <div class="paste-section">
+                <p class="paste-label">Paste text</p>
                 <div
                   class="rich-input"
                   data-paste-area
                   contenteditable="true"
                   role="textbox"
                   aria-multiline="true"
-                  data-placeholder="Or paste text here…"
+                  data-placeholder="Paste text here…"
                 ></div>
-              </div>
-              <div class="panel-footer">
-                <button class="btn btn-primary" data-analyze-paste>Analyze</button>
-                <button class="btn btn-subtle" data-clear-paste>Clear</button>
+                <div class="paste-actions">
+                  <button class="btn btn-primary" data-analyze-paste>Analyze</button>
+                  <button class="btn btn-subtle" data-clear-paste>Clear</button>
+                </div>
               </div>
             </section>
 
@@ -281,15 +298,15 @@
       }
 
       function bindInputHandlers() {
-        const dropArea   = $("[data-drop-area]",    root);
-        const fileInput  = $("[data-file-input]",   root);
-        const pasteArea  = $("[data-paste-area]",   root);
+        const dropArea   = $("[data-drop-area]",     root);
+        const fileInput  = $("[data-file-input]",    root);
+        const pasteArea  = $("[data-paste-area]",    root);
         const analyzeBtn = $("[data-analyze-paste]", root);
-        const clearBtn   = $("[data-clear-paste]",  root);
-        const toggleBtn  = $("[data-toggle-tags]",  root);
-        const tagInput   = $("[data-tag-input]",    root);
-        const addTagBtn  = $("[data-add-tag]",      root);
-        const tagsList   = $("[data-tags-list]",    root);
+        const clearBtn   = $("[data-clear-paste]",   root);
+        const toggleBtn  = $("[data-toggle-tags]",   root);
+        const tagInput   = $("[data-tag-input]",     root);
+        const addTagBtn  = $("[data-add-tag]",       root);
+        const tagsList   = $("[data-tags-list]",     root);
 
         // File upload
         dropArea.addEventListener("click", () => fileInput.click());
@@ -318,10 +335,7 @@
 
         analyzeBtn.addEventListener("click", () => {
           const links = extractFromEditor(pasteArea);
-          if (!links.length) {
-            pasteArea.focus();
-            return;
-          }
+          if (!links.length) { pasteArea.focus(); return; }
           processLinks(links, pasteLabel(pasteArea), "paste");
         });
 
@@ -382,7 +396,10 @@
         sourceLabel = label;
         results = applyTags(links, tags);
         sessionId = `session-${Date.now()}`;
-        checkingLinks = true; // pre-set so button renders as disabled immediately
+        checkingLinks = true;
+        activeFilter = null;
+        sortCol = null;
+        sortDir = "asc";
 
         ns.history.add({
           id: sessionId,
@@ -394,7 +411,7 @@
         });
 
         renderResults();
-        runLinkCheck(); // start automatically
+        runLinkCheck();
       }
 
       // ── Results phase ───────────────────────────────────────────────────
@@ -415,7 +432,7 @@
 
             <dl class="column-guide">
               <div><dt>Visible Text</dt><dd>The anchor text of the link as it appears in the document.</dd></div>
-              <div><dt>Destination URL</dt><dd>The full destination URL.</dd></div>
+              <div><dt>Destination URL</dt><dd>The full destination URL. Click any link to open it in a new tab.</dd></div>
               <div><dt>AI Flag</dt><dd>Flagged if the URL contains a known AI platform tracking tag (e.g. <code>utm_source=chatgpt.com</code>). Customize the tag list above.</dd></div>
               <div><dt>Status</dt><dd>Whether the URL responded when checked. <em>Reachable</em> means a server responded — not that the page exists (a 404 still shows as Reachable). Some legitimate links redirected by services like LinkedIn or Google may also show as Unreachable.</dd></div>
             </dl>
@@ -424,8 +441,9 @@
               <div class="panel-header">
                 <div class="panel-actions">
                   <span class="count-pill">${results.length} link${results.length === 1 ? "" : "s"}</span>
-                  <span class="count-pill count-pill-warn" data-pill-flagged ${flagged ? "" : "hidden"}>${flagged} AI flagged</span>
-                  <span class="count-pill count-pill-bad" data-pill-bad ${bad ? "" : "hidden"}>${bad} unreachable</span>
+                  <button class="count-pill count-pill-warn" data-filter="flagged" ${flagged ? "" : "hidden"}>${flagged} AI flagged</button>
+                  <button class="count-pill count-pill-bad" data-filter="bad" ${bad ? "" : "hidden"}>${bad} unreachable</button>
+                  <span class="filter-indicator" data-filter-indicator hidden></span>
                 </div>
                 <div class="panel-actions">
                   <button class="btn btn-secondary" data-copy-urls>Copy URLs</button>
@@ -444,8 +462,8 @@
                     <tr>
                       <th class="col-text">Visible Text</th>
                       <th class="col-url">Destination URL</th>
-                      <th class="col-flag">AI Flag</th>
-                      <th class="col-status">Status</th>
+                      <th class="col-flag col-sortable" data-sort-col="flag">AI Flag <span class="sort-icon" aria-hidden="true"></span></th>
+                      <th class="col-status col-sortable" data-sort-col="status">Status <span class="sort-icon" aria-hidden="true"></span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -454,7 +472,6 @@
                 </table>
               </div>
             </section>
-
           </div>
         `;
 
@@ -465,9 +482,8 @@
         const flagCell = r.flag
           ? `<span class="flag-icon" title="AI tracking tag detected" aria-label="AI tracking tag detected">!</span>`
           : `<span class="cell-dash">—</span>`;
-        const urlCell = r.flag
-          ? highlightMatches(r.url, r.flaggedTags)
-          : escapeHtml(r.url);
+        const urlContent = r.flag ? highlightMatches(r.url, r.flaggedTags) : escapeHtml(r.url);
+        const urlCell = `<a href="${escapeHtml(r.url)}" target="_blank" rel="noopener noreferrer" class="url-link">${urlContent}</a>`;
         return `
           <tr data-row="${i}">
             <td class="col-text">${r.visibleText ? escapeHtml(r.visibleText) : '<span class="empty">—</span>'}</td>
@@ -478,19 +494,72 @@
         `;
       }
 
+      // ── Table rendering (with filter + sort) ─────────────────────────────
+
+      function renderTable() {
+        // Build an indexed list so we preserve original indices for updateRow()
+        let visible = results.map((r, i) => ({ r, i }));
+
+        if (activeFilter === "flagged") visible = visible.filter(({ r }) => r.flag);
+        if (activeFilter === "bad")     visible = visible.filter(({ r }) => r.status === "unreachable" || r.status === "timeout");
+
+        if (sortCol === "flag") {
+          visible.sort(({ r: a }, { r: b }) => {
+            const diff = (b.flag ? 1 : 0) - (a.flag ? 1 : 0); // flagged first
+            return sortDir === "asc" ? diff : -diff;
+          });
+        }
+        if (sortCol === "status") {
+          const order = { unreachable: 0, timeout: 1, checking: 2, pending: 3, reachable: 4 };
+          visible.sort(({ r: a }, { r: b }) => {
+            const diff = (order[a.status] ?? 5) - (order[b.status] ?? 5);
+            return sortDir === "asc" ? diff : -diff;
+          });
+        }
+
+        const tbody = root.querySelector("tbody");
+        if (tbody) tbody.innerHTML = visible.map(({ r, i }) => rowHtml(r, i)).join("");
+
+        // Filter indicator
+        const indicator = $("[data-filter-indicator]", root);
+        if (indicator) {
+          if (activeFilter) {
+            indicator.textContent = `Showing ${visible.length} of ${results.length}`;
+            indicator.hidden = false;
+          } else {
+            indicator.hidden = true;
+          }
+        }
+
+        // Sort icons + active class
+        root.querySelectorAll("[data-sort-col]").forEach(th => {
+          const icon = th.querySelector(".sort-icon");
+          const isActive = th.dataset.sortCol === sortCol;
+          if (icon) icon.textContent = isActive ? (sortDir === "asc" ? " ↑" : " ↓") : "";
+          th.classList.toggle("col-sort-active", isActive);
+        });
+
+        // Active filter pill styling
+        root.querySelectorAll("[data-filter]").forEach(btn => {
+          btn.classList.toggle("pill-active", btn.dataset.filter === activeFilter);
+        });
+      }
+
       function updateRow(i) {
         const cell = root.querySelector(`[data-status-cell="${i}"]`);
         if (cell) cell.innerHTML = statusBadge(results[i].status);
       }
 
       function updatePills() {
-        const bad = results.filter(r => r.status === "unreachable" || r.status === "timeout").length;
+        const bad     = results.filter(r => r.status === "unreachable" || r.status === "timeout").length;
         const flagged = results.filter(r => r.flag).length;
-        const pBad = $("[data-pill-bad]", root);
-        const pFlagged = $("[data-pill-flagged]", root);
-        if (pBad) { pBad.textContent = `${bad} unreachable`; pBad.hidden = bad === 0; }
-        if (pFlagged) { pFlagged.textContent = `${flagged} AI flagged`; pFlagged.hidden = flagged === 0; }
+        const pBad     = $("[data-filter='bad']",     root);
+        const pFlagged = $("[data-filter='flagged']", root);
+        if (pBad)     { pBad.textContent     = `${bad} unreachable`;  pBad.hidden     = bad === 0     && activeFilter !== "bad"; }
+        if (pFlagged) { pFlagged.textContent = `${flagged} AI flagged`; pFlagged.hidden = flagged === 0 && activeFilter !== "flagged"; }
       }
+
+      // ── Result handlers ──────────────────────────────────────────────────
 
       function bindResultHandlers() {
         $("[data-new-analysis]", root).addEventListener("click", () => {
@@ -498,22 +567,54 @@
           sourceLabel = "";
           sessionId = null;
           checkingLinks = false;
+          activeFilter = null;
+          sortCol = null;
           renderInput();
         });
 
-        $("[data-copy-urls]", root).addEventListener("click", async (e) => {
-          await copyText(results.map(r => r.url).join("\n"));
-          const btn = e.currentTarget;
-          const orig = btn.textContent;
-          btn.textContent = "Copied!";
-          btn.disabled = true;
-          setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+        // Copy URLs with visual feedback
+        $("[data-copy-urls]", root).addEventListener("click", e => {
+          copyWithFeedback(e.currentTarget, () => results.map(r => r.url).join("\n"));
         });
 
+        // Filter pills
+        root.addEventListener("click", e => {
+          const filterBtn = e.target.closest("[data-filter]");
+          if (filterBtn) {
+            const f = filterBtn.dataset.filter;
+            activeFilter = activeFilter === f ? null : f; // toggle
+            renderTable();
+            return;
+          }
+
+          // Sort headers
+          const sortTh = e.target.closest("[data-sort-col]");
+          if (sortTh) {
+            const col = sortTh.dataset.sortCol;
+            if (sortCol === col) {
+              if (sortDir === "asc") { sortDir = "desc"; }
+              else { sortCol = null; sortDir = "asc"; } // third click clears
+            } else {
+              sortCol = col;
+              sortDir = "asc";
+            }
+            renderTable();
+            return;
+          }
+
+          // Close export menu
+          if (!e.target.closest(".export-wrap")) {
+            const menu = $("[data-export-menu]", root);
+            if (menu) menu.hidden = true;
+          }
+        });
+
+        // Export
         const exportToggle = $("[data-export-toggle]", root);
         const exportMenu   = $("[data-export-menu]",   root);
 
-        exportToggle.addEventListener("click", () => {
+        exportToggle.addEventListener("click", e => {
+          e.stopPropagation();
           exportMenu.hidden = !exportMenu.hidden;
         });
 
@@ -521,18 +622,12 @@
           const btn = e.target.closest("[data-export]");
           if (!btn) return;
           exportMenu.hidden = true;
-          const csv = toCSV(results);
           const slug = sourceLabel.replace(/[^a-z0-9]/gi, "-").toLowerCase().slice(0, 40);
           if (btn.dataset.export === "copy-csv") {
-            copyText(csv);
+            copyWithFeedback(exportToggle, () => toCSV(results));
           } else {
-            downloadCSV(csv, `${slug || "results"}.csv`);
+            downloadCSV(toCSV(results), `${slug || "results"}.csv`);
           }
-        });
-
-        // Close export menu when clicking elsewhere in the tool
-        root.addEventListener("click", e => {
-          if (!e.target.closest(".export-wrap")) exportMenu.hidden = true;
         });
       }
 

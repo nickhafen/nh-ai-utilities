@@ -574,44 +574,75 @@ mark {
   border: 1px solid var(--success-border);
 }
 
-/* ── Input panel (combined upload + paste) ── */
+/* ── Input panel (two-section: upload + paste) ── */
 
-.input-panel .panel-body {
+.upload-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.75rem 1.5rem;
+  min-height: 9rem;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+
+.upload-section:hover,
+.upload-section.drag-over {
+  background: var(--primary-soft);
+}
+
+.input-section-divider {
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.input-section-divider::before,
+.input-section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.input-section-divider span {
+  padding: 0 0.75rem;
+}
+
+.paste-section {
+  padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.625rem;
+}
+
+.paste-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.paste-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .input-panel .rich-input {
   min-height: 3.5rem;
   max-height: 20rem;
   overflow-y: auto;
-}
-
-/* Compact drop bar replacing the large drop zone */
-.drop-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.5rem 0.75rem;
-  border: 1.5px dashed var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
-  user-select: none;
-}
-
-.drop-bar:hover,
-.drop-bar.drag-over {
-  border-color: var(--primary);
-  background: var(--primary-soft);
-}
-
-.drop-bar .drop-icon {
-  height: 1.625rem;
-  padding: 0 0.4rem;
-  font-size: 0.65rem;
-  flex-shrink: 0;
 }
 
 /* ── Configure tags ── */
@@ -986,6 +1017,67 @@ tr[data-row] td {
   background: #fef2f2;
   color: #dc2626;
   border: 1px solid #fecaca;
+}
+
+/* ── URL links in table ── */
+
+.url-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.url-link:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ── Filter pills (clickable) ── */
+
+button.count-pill {
+  cursor: pointer;
+  transition: opacity 0.1s, box-shadow 0.1s;
+}
+
+button.count-pill:hover {
+  opacity: 0.8;
+}
+
+button.count-pill.pill-active {
+  box-shadow: 0 0 0 2px currentColor;
+}
+
+.filter-indicator {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+/* ── Sortable column headers ── */
+
+.col-sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.col-sortable:hover {
+  color: var(--text);
+}
+
+.col-sort-active {
+  color: var(--primary);
+}
+
+.sort-icon {
+  font-size: 0.65rem;
+}
+
+/* ── Copy feedback ── */
+
+.btn-success {
+  background: var(--success-soft) !important;
+  color: var(--success) !important;
+  border-color: var(--success-border) !important;
 }
 
 /* ── Responsive ── */
