@@ -24,6 +24,8 @@
 }
 
 body {
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background: var(--bg);
@@ -49,13 +51,13 @@ button {
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
-  grid-template-rows: 1fr auto;
-  height: 100vh;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .app-footer {
-  grid-column: 1 / -1;
+  flex-shrink: 0;
   padding: 0.5rem 1.5rem;
   background: var(--bg);
   border-top: 1px solid var(--border);
@@ -1339,13 +1341,13 @@ details[open] .dev-tools-toggle::before {
   body {
     overflow: auto;
     height: auto;
+    flex-direction: column;
   }
 
   .app-shell {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
-    height: auto;
-    min-height: 100vh;
+    flex: none;
+    min-height: 0;
     overflow: visible;
   }
 
