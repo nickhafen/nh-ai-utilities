@@ -281,19 +281,26 @@
         if (!editor) return;
         const { name, description, body } = getValues();
         preview.textContent = buildFullContent(name, description, body);
+        // Persist draft so navigating away and back doesn't clear the fields
+        ns.skillCreatorDraft = { name, description, body };
       }
 
       // ── Initial render ───────────────────────────────────────────────────
 
-      // Restore from History if navigated here from History tab
+      // Restore state — History navigation takes priority over in-session draft
       const pending = ns.pendingSkillSession || null;
       ns.pendingSkillSession = null;
+      const draft = !pending ? (ns.skillCreatorDraft || null) : null;
 
-      createEditor('split', pending?.body || '');
+      createEditor('split', pending?.body || draft?.body || '');
 
       if (pending) {
         nameInput.value = pending.name || '';
         descInput.value = pending.description || '';
+        refresh();
+      } else if (draft) {
+        nameInput.value = draft.name || '';
+        descInput.value = draft.description || '';
         refresh();
       }
 
@@ -324,6 +331,7 @@
         nameInput.value = '';
         descInput.value = '';
         editor.setMarkdown('');
+        ns.skillCreatorDraft = null;
         refresh();
       });
 

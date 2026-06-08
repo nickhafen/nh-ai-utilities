@@ -49,8 +49,23 @@ button {
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-rows: 1fr auto;
   height: 100vh;
   overflow: hidden;
+}
+
+.app-footer {
+  grid-column: 1 / -1;
+  padding: 0.5rem 1.5rem;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.app-footer strong {
+  color: var(--muted-strong);
 }
 
 /* ── Sidebar ── */
@@ -1095,18 +1110,13 @@ button.count-pill.pill-active {
 
 .skill-meta-fields {
   display: flex;
-  gap: 1rem 1.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 1rem;
-  align-items: end;
-  flex-wrap: wrap;
-}
-
-.skill-meta-fields .field {
-  min-width: 14rem;
 }
 
 .skill-desc-field {
-  flex: 1;
+  /* inherits column layout naturally */
 }
 
 .skill-desc-input {
@@ -1302,8 +1312,6 @@ details[open] .dev-tools-toggle::before {
   height: 1.1rem;
   padding: 0 0.35rem;
   border-radius: 3px;
-  background: var(--primary-soft);
-  color: var(--primary);
   font-size: 0.62rem;
   font-weight: 700;
   font-family: ui-monospace, monospace;
@@ -1312,6 +1320,17 @@ details[open] .dev-tools-toggle::before {
   vertical-align: middle;
   position: relative;
   top: -1px;
+}
+
+.session-type-skill {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.session-type-doc {
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid var(--success-border);
 }
 
 /* ── Responsive ── */
@@ -1364,10 +1383,6 @@ details[open] .dev-tools-toggle::before {
   .checker-grid,
   .skill-split {
     grid-template-columns: 1fr;
-  }
-
-  .skill-meta-fields {
-    flex-direction: column;
   }
 
   .skill-md-preview {

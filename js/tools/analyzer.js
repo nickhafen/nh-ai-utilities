@@ -274,11 +274,6 @@
               </div>
             </div>
 
-            <p class="storage-note">
-              🔒 <strong>Privacy:</strong> Nothing is uploaded to the internet — all analysis runs in your browser.
-              Results are saved to this browser's local storage on this device only.
-              They are not synced across devices or browsers, and will be cleared if you clear your browser's site data for this page.
-            </p>
           </div>
         `;
 

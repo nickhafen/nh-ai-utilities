@@ -115,8 +115,8 @@
   function sessionCardHtml(s) {
     const isSkill = s.inputType === "skill";
     const badge = isSkill
-      ? `<span class="session-type-badge">SKILL</span>`
-      : "";
+      ? `<span class="session-type-badge session-type-skill">SKILL</span>`
+      : `<span class="session-type-badge session-type-doc">DOC</span>`;
     const title = isSkill ? "Click to restore this skill" : "Click to restore this analysis";
     return `
       <div class="session-card" data-session-id="${escapeHtml(s.id)}" role="button" tabindex="0"
