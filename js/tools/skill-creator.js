@@ -120,7 +120,7 @@
             <button class="btn btn-subtle" data-sc-clear>Clear</button>
             <div class="skill-footer-actions">
               <button class="btn btn-secondary" data-sc-copy>Copy Markdown</button>
-              <button class="btn btn-secondary" data-sc-save>Save</button>
+              <button class="btn btn-secondary" data-sc-save>Save to History</button>
               <button class="btn btn-primary"   data-sc-export>Export ZIP</button>
             </div>
           </div>
@@ -344,7 +344,7 @@
       });
 
       saveBtn.addEventListener('click', () => {
-        withFeedback(saveBtn, '✓ Saved', async () => {
+        withFeedback(saveBtn, '✓ Saved to History', async () => {
           const { name, description, body } = getValues();
           saveToHistory(name, description, body);
         });

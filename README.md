@@ -47,6 +47,14 @@ python3 -m http.server 5173
 
 All processing runs in your browser. No content is sent to any server. History is stored in `localStorage` on this device only and is not synced across devices or browsers.
 
+## Roadmap
+
+### SKILL Creator
+- [ ] Add in-tool instructions explaining what a skill file is and how to use it
+- [ ] Add links for installing skill files in Claude Code, ChatGPT, and other platforms
+- [ ] Decide on default editor layout — side-by-side preview vs. tabbed WYSIWYG/markdown — or expose the choice as a user preference
+- [ ] General copy and UX polish
+
 ## Stack
 
 - Vanilla JavaScript — no framework, no bundler, no install step
