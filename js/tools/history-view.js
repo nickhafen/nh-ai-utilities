@@ -13,6 +13,17 @@
   }
 
   function sessionSummary(session) {
+    if (session.inputType === "skill") {
+      const words = (session.body || "").trim().split(/\s+/).filter(Boolean).length;
+      const parts = [`${words} word${words === 1 ? "" : "s"}`];
+      if (session.description) {
+        const desc = session.description.length > 60
+          ? session.description.slice(0, 60) + "…"
+          : session.description;
+        parts.push(escapeHtml(desc));
+      }
+      return parts.join(" · ");
+    }
     const total   = session.results.length;
     const flagged = session.results.filter(r => r.flag).length;
     const bad     = session.results.filter(r => r.status === "unreachable" || r.status === "timeout").length;
@@ -75,8 +86,13 @@
         if (card) {
           const session = ns.history.get(card.dataset.sessionId);
           if (session) {
-            ns.pendingSession = session;
-            window.location.hash = "analyzer";
+            if (session.inputType === "skill") {
+              ns.pendingSkillSession = session;
+              window.location.hash = "skill-creator";
+            } else {
+              ns.pendingSession = session;
+              window.location.hash = "analyzer";
+            }
           }
         }
       });
@@ -97,11 +113,16 @@
   });
 
   function sessionCardHtml(s) {
+    const isSkill = s.inputType === "skill";
+    const badge = isSkill
+      ? `<span class="session-type-badge">SKILL</span>`
+      : "";
+    const title = isSkill ? "Click to restore this skill" : "Click to restore this analysis";
     return `
       <div class="session-card" data-session-id="${escapeHtml(s.id)}" role="button" tabindex="0"
-           title="Click to restore this analysis">
+           title="${title}">
         <div class="session-info">
-          <div class="session-meta">${escapeHtml(s.sourceLabel)}</div>
+          <div class="session-meta">${badge}${escapeHtml(s.sourceLabel)}</div>
           <div class="session-time">${relativeTime(s.timestamp)}</div>
           <div class="session-summary">${sessionSummary(s)}</div>
         </div>
