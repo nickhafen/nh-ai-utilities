@@ -1,4 +1,4 @@
-# NH AI Utilities
+# AI Utilities
 
 Browser-based tools for AI-assisted academic and professional work. No sign-in, no server, no uploads — everything runs locally in your browser.
 
