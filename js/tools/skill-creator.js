@@ -77,19 +77,19 @@
           <!-- Metadata -->
           <div class="panel skill-meta-panel">
             <div class="panel-header">
-              <span class="panel-title">Skill Metadata</span>
+              <span class="panel-title">Metadata</span>
             </div>
             <div class="skill-meta-fields">
               <div class="field">
                 <label for="sc-name">Skill Name
-                  <span class="field-hint">kebab-case — used as the export folder name</span>
+                  <span class="field-hint">kebab-case</span>
                 </label>
                 <input id="sc-name" type="text" class="text-input" data-sc-name
                   placeholder="my-skill-name" autocomplete="off" spellcheck="false">
               </div>
               <div class="field skill-desc-field">
                 <label for="sc-desc">Description
-                  <span class="field-hint">goes in the file's frontmatter — Claude uses this to decide when to trigger the skill</span>
+                  <span class="field-hint">AI tools use this to decide when to trigger the skill</span>
                 </label>
                 <input id="sc-desc" type="text" class="text-input skill-desc-input" data-sc-desc
                   placeholder="Use this skill when the user asks to…">
@@ -102,14 +102,14 @@
             <div class="panel skill-editor-panel">
               <div class="panel-header">
                 <span class="panel-title">Content</span>
-                <span class="hint">Write the skill's instructions in rich text</span>
+                
               </div>
               <div data-sc-editor></div>
             </div>
             <div class="panel skill-preview-panel" data-sc-preview-panel>
               <div class="panel-header">
                 <span class="panel-title">Markdown File Preview</span>
-                <span class="hint">Exactly what will be inside SKILL.md</span>
+                
               </div>
               <pre class="skill-md-preview" data-sc-preview></pre>
             </div>
