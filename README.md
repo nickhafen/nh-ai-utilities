@@ -54,6 +54,7 @@ All processing runs in your browser. No content is sent to any server. History i
 - [ ] Add links for installing skill files in Claude Code, ChatGPT, and other platforms
 - [ ] Decide on default editor layout — side-by-side preview vs. tabbed WYSIWYG/markdown — or expose the choice as a user preference
 - [ ] General copy and UX polish
+- [ ] Add optional metadata fields?
 
 ## Stack
 
