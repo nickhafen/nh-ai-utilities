@@ -46,7 +46,7 @@ button {
   cursor: pointer;
 }
 
-/* ── App shell ── */
+/* -- App shell -- */
 
 .app-shell {
   display: grid;
@@ -70,7 +70,7 @@ button {
   color: var(--muted-strong);
 }
 
-/* ── Sidebar ── */
+/* -- Sidebar -- */
 
 .sidebar {
   display: flex;
@@ -122,14 +122,14 @@ button {
   font-weight: 600;
 }
 
-/* ── Tool root ── */
+/* -- Tool root -- */
 
 .tool-root {
   overflow-y: auto;
   padding: 2rem;
 }
 
-/* ── Tool view ── */
+/* -- Tool view -- */
 
 .tool-view {
   display: grid;
@@ -137,7 +137,7 @@ button {
   max-width: 1100px;
 }
 
-/* ── Layout grids ── */
+/* -- Layout grids -- */
 
 .utility-grid {
   display: grid;
@@ -150,7 +150,7 @@ button {
   grid-template-columns: minmax(16rem, 0.65fr) minmax(0, 1.35fr);
 }
 
-/* ── Panel ── */
+/* -- Panel -- */
 
 .panel {
   background: var(--surface);
@@ -197,7 +197,7 @@ button {
   gap: 0.5rem;
 }
 
-/* ── Tags ── */
+/* -- Tags -- */
 
 .tags-row {
   display: flex;
@@ -238,7 +238,7 @@ button {
   background: rgba(37, 99, 235, 0.12);
 }
 
-/* ── Form ── */
+/* -- Form -- */
 
 .add-row,
 .actions-row {
@@ -319,7 +319,7 @@ button {
   text-decoration: underline;
 }
 
-/* ── Buttons ── */
+/* -- Buttons -- */
 
 .btn {
   display: inline-flex;
@@ -369,7 +369,7 @@ button {
   cursor: not-allowed;
 }
 
-/* ── Segmented control ── */
+/* -- Segmented control -- */
 
 .segmented {
   display: inline-flex;
@@ -400,7 +400,7 @@ button {
   font-weight: 600;
 }
 
-/* ── Count pill ── */
+/* -- Count pill -- */
 
 .count-pill {
   display: inline-flex;
@@ -415,7 +415,7 @@ button {
   border: 1px solid var(--border);
 }
 
-/* ── Drop area ── */
+/* -- Drop area -- */
 
 .drop-area {
   display: grid;
@@ -470,7 +470,7 @@ button {
   color: var(--muted);
 }
 
-/* ── Summary ── */
+/* -- Summary -- */
 
 .summary {
   display: flex;
@@ -503,7 +503,7 @@ button {
   color: var(--muted);
 }
 
-/* ── Table ── */
+/* -- Table -- */
 
 .results-panel {
   overflow: hidden;
@@ -568,7 +568,7 @@ mark {
   border-radius: 2px;
 }
 
-/* ── Clean state ── */
+/* -- Clean state -- */
 
 .clean {
   text-align: center;
@@ -591,7 +591,7 @@ mark {
   border: 1px solid var(--success-border);
 }
 
-/* ── Input panel (two-section: upload + paste) ── */
+/* -- Input panel (two-section: upload + paste) -- */
 
 .upload-section {
   display: flex;
@@ -662,7 +662,7 @@ mark {
   overflow-y: auto;
 }
 
-/* ── Configure tags ── */
+/* -- Configure tags -- */
 
 .configure-row {
   display: flex;
@@ -688,7 +688,7 @@ mark {
   border-radius: 6px;
 }
 
-/* ── Storage note ── */
+/* -- Storage note -- */
 
 .storage-note {
   font-size: 0.78rem;
@@ -704,7 +704,7 @@ mark {
   color: var(--muted-strong);
 }
 
-/* ── Source bar (shown after analysis) ── */
+/* -- Source bar (shown after analysis) -- */
 
 .source-bar {
   display: flex;
@@ -732,7 +732,7 @@ mark {
   text-overflow: ellipsis;
 }
 
-/* ── Count pill variants ── */
+/* -- Count pill variants -- */
 
 .count-pill-warn {
   background: var(--warning-soft);
@@ -746,7 +746,7 @@ mark {
   border: 1px solid #fecaca;
 }
 
-/* ── Export dropdown ── */
+/* -- Export dropdown -- */
 
 .export-wrap {
   position: relative;
@@ -786,7 +786,7 @@ mark {
   background: var(--bg);
 }
 
-/* ── Table column widths ── */
+/* -- Table column widths -- */
 
 .col-flag {
   width: 6.5rem;
@@ -802,7 +802,7 @@ mark {
   color: #9ca3af;
 }
 
-/* ── Link badges ── */
+/* -- Link badges -- */
 
 .link-badge {
   display: inline-flex;
@@ -864,7 +864,7 @@ tr[data-row] td {
   transition: background 0.1s;
 }
 
-/* ── History view ── */
+/* -- History view -- */
 
 .history-header {
   display: flex;
@@ -875,6 +875,19 @@ tr[data-row] td {
 .history-list {
   display: grid;
   gap: 0.625rem;
+}
+.history-note {
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+  border-radius: 8px;
+  color: var(--warning);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  padding: 0.75rem 0.875rem;
+}
+
+.history-note strong {
+  color: var(--warning);
 }
 
 .history-empty {
@@ -949,7 +962,7 @@ tr[data-row] td {
   color: #dc2626;
 }
 
-/* ── Column guide ── */
+/* -- Column guide -- */
 
 .column-guide {
   display: grid;
@@ -976,7 +989,7 @@ tr[data-row] td {
 }
 
 .column-guide dt::after {
-  content: " —";
+  content: " -";
   font-weight: 400;
 }
 
@@ -989,7 +1002,7 @@ tr[data-row] td {
   font-size: 0.9em;
 }
 
-/* ── Status badges ── */
+/* -- Status badges -- */
 
 .col-status {
   width: 8rem;
@@ -1036,7 +1049,7 @@ tr[data-row] td {
   border: 1px solid #fecaca;
 }
 
-/* ── URL links in table ── */
+/* -- URL links in table -- */
 
 .url-link {
   color: inherit;
@@ -1049,7 +1062,7 @@ tr[data-row] td {
   text-underline-offset: 2px;
 }
 
-/* ── Filter pills (clickable) ── */
+/* -- Filter pills (clickable) -- */
 
 button.count-pill {
   cursor: pointer;
@@ -1069,7 +1082,7 @@ button.count-pill.pill-active {
   color: var(--muted);
 }
 
-/* ── Sortable column headers ── */
+/* -- Sortable column headers -- */
 
 .col-sortable {
   cursor: pointer;
@@ -1089,7 +1102,7 @@ button.count-pill.pill-active {
   font-size: 0.65rem;
 }
 
-/* ── Copy feedback ── */
+/* -- Copy feedback -- */
 
 .btn-success {
   background: var(--success-soft) !important;
@@ -1097,7 +1110,7 @@ button.count-pill.pill-active {
   border-color: var(--success-border) !important;
 }
 
-/* ── SKILL Creator ── */
+/* -- SKILL Creator -- */
 
 .skill-creator {
   display: grid;
@@ -1256,7 +1269,7 @@ button.count-pill.pill-active {
   margin-top: 0.2rem;
 }
 
-/* ── Dev tools ── */
+/* -- Dev tools -- */
 
 .dev-tools {
   border: 1px dashed var(--border);
@@ -1280,7 +1293,7 @@ button.count-pill.pill-active {
 .dev-tools-toggle::-webkit-details-marker { display: none; }
 
 .dev-tools-toggle::before {
-  content: '▶';
+  content: '>';
   font-size: 0.6rem;
   display: inline-block;
   transition: transform 0.15s;
@@ -1302,7 +1315,7 @@ details[open] .dev-tools-toggle::before {
   font-size: 0.72rem;
 }
 
-/* ── Editor layout modes ── */
+/* -- Editor layout modes -- */
 
 .skill-split-full {
   grid-template-columns: 1fr !important;
@@ -1334,8 +1347,13 @@ details[open] .dev-tools-toggle::before {
   color: var(--success);
   border: 1px solid var(--success-border);
 }
+.session-type-curriculum {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border: 1px solid var(--warning-border);
+}
 
-/* ── Responsive ── */
+/* -- Responsive -- */
 
 @media (max-width: 768px) {
   body {
@@ -1404,5 +1422,224 @@ details[open] .dev-tools-toggle::before {
   .source-bar {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* -- Curriculum Planner -- */
+.curriculum-planner {
+  max-width: 1440px;
+}
+
+.curriculum-planner .panel-header > div:first-child {
+  min-width: 0;
+}
+
+.cp-subtitle {
+  margin-top: 0.125rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.cp-search {
+  width: 15rem;
+}
+
+.cp-select {
+  width: 15rem;
+  font-family: inherit;
+}
+
+.cp-stats,
+.cp-count {
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cp-modules {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.cp-module {
+  min-height: 18rem;
+}
+
+.cp-module-header {
+  align-items: start;
+}
+
+.cp-module-header .text-input {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.cp-drop-zone {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 14rem;
+  padding: 1rem;
+}
+
+.cp-framework {
+  display: grid;
+  gap: 1rem;
+}
+
+.cp-pillar {
+  border-top: 3px solid var(--cp-pillar-color);
+  overflow: hidden;
+}
+
+.cp-pillar-header {
+  background: color-mix(in srgb, var(--cp-pillar-color) 14%, var(--surface));
+}
+
+.cp-pillar.is-collapsed .cp-grid {
+  display: none;
+}
+
+.cp-grid {
+  display: grid;
+  grid-template-columns: minmax(10rem, 0.72fr) repeat(3, minmax(13rem, 1fr));
+}
+
+.cp-grid-head,
+.cp-competency,
+.cp-framework-cell {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.cp-grid-head:nth-child(4n),
+.cp-framework-cell:nth-child(4n),
+.cp-competency:nth-child(4n) {
+  border-right: 0;
+}
+
+.cp-grid-head,
+.cp-competency {
+  background: var(--bg);
+  color: var(--muted-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.cp-grid-head {
+  padding: 0.625rem 0.75rem;
+}
+
+.cp-competency {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+}
+
+.cp-framework-cell {
+  min-height: 10rem;
+  padding: 0.75rem;
+}
+
+.cp-drop-zone.is-drag-over,
+.cp-framework-cell.is-drag-over {
+  outline: 3px solid rgba(37, 99, 235, 0.4);
+  outline-offset: -3px;
+  background: var(--primary-soft);
+}
+
+.cp-empty {
+  display: grid;
+  place-items: center;
+  min-height: 5.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.cp-sticky {
+  display: grid;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--cp-note-color) 65%, rgba(17, 24, 39, 0.25));
+  border-radius: 7px;
+  background: var(--cp-note-color);
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+  cursor: grab;
+}
+
+.cp-sticky:active {
+  cursor: grabbing;
+}
+
+.cp-sticky[hidden],
+.cp-pillar[hidden] {
+  display: none;
+}
+
+.cp-note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.cp-note-tags .count-pill {
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--muted-strong);
+  border-color: rgba(17, 24, 39, 0.14);
+}
+
+.cp-return-pill {
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--muted-strong);
+}
+
+.cp-return-pill:hover {
+  background: var(--surface);
+  color: var(--primary);
+  border-color: rgba(37, 99, 235, 0.28);
+}
+.cp-sticky p {
+  color: var(--muted-strong);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.cp-note-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+
+@media (max-width: 1100px) {
+  .curriculum-planner .panel-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cp-search,
+  .cp-select {
+    width: 100%;
+  }
+
+  .cp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cp-grid-head {
+    display: none;
+  }
+
+  .cp-grid-head,
+  .cp-competency,
+  .cp-framework-cell {
+    border-right: 0;
   }
 }
