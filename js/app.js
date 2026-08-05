@@ -23,6 +23,12 @@
     `).join("");
   }
 
+  // Tools registered with `persist: true` render once into a container that is
+  // detached (not destroyed) on navigation, so their DOM and closure state
+  // survive; re-activating re-attaches the same element. `onShow` fires on
+  // every activation of a persistent tool, after render on the first one.
+  const persistedRoots = new Map();
+
   function activateTool(toolId) {
     const tool = ns.tools.find((candidate) => candidate.id === toolId) || ns.tools[0];
     if (!tool) return;
@@ -31,7 +37,19 @@
     root.innerHTML = "";
     root.dataset.activeTool = tool.id;
     document.title = `${tool.name} | AI Utilities`;
-    tool.render(root);
+    if (tool.persist) {
+      let el = persistedRoots.get(tool.id);
+      const first = !el;
+      if (first) {
+        el = document.createElement("div");
+        persistedRoots.set(tool.id, el);
+      }
+      root.appendChild(el);
+      if (first) tool.render(el);
+      if (tool.onShow) tool.onShow(el);
+    } else {
+      tool.render(root);
+    }
   }
 
   nav.addEventListener("click", (event) => {

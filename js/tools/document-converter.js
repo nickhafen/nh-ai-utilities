@@ -11,6 +11,17 @@
     ["emptySpace",    "Empty paragraphs and extra spacing","Redundant whitespace only"],
   ];
 
+  // PPTX removal list: [id, label, help, defaultRemoved]. Checked items are
+  // removed, matching the DOCX panel's semantics. Toggling recalculates both
+  // the raw-XML baseline and the Markdown output.
+  const pptxToggles = [
+    ["speakerNotes",       "Speaker notes",                  "Presenter notes attached to slides", true],
+    ["hiddenSlides",       "Hidden slides",                  "Slides marked hidden in the deck", true],
+    ["slideFooters",       "Slide numbers and footers",      "Recurring footer, date, and slide-number text", true],
+    ["masterPlaceholders", "Master/layout placeholder text", "Template text from slide masters and layouts", true],
+    ["embeddedData",       "Embedded object data",           "Chart titles, series, and cached backing data", false],
+  ];
+
   const DOCX_PART_GROUPS = [
     { re: /^word\/document\.xml$/i,   group: "body",         label: "Body content",       color: "#2563eb" },
     { re: /^word\/footnotes\.xml$/i,  group: "footnotes",    label: "Footnotes/endnotes", color: "#0891b2" },
@@ -126,10 +137,7 @@
             .map((cell) => cell.textContent.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim())
         ).filter((row) => row.length);
         if (!rows.length) return "";
-        const width = Math.max(...rows.map((row) => row.length));
-        rows.forEach((row) => { while (row.length < width) row.push(""); });
-        const line = (row) => `| ${row.join(" | ")} |`;
-        return `\n\n${line(rows[0])}\n${line(Array(width).fill("---"))}\n${rows.slice(1).map(line).join("\n")}\n\n`;
+        return `\n\n${ns.markdownTable(rows)}\n\n`;
       },
     });
     return td;
@@ -212,12 +220,59 @@
     }, 2000);
   }
 
+  // ---- Important-notes content, per input type ----
+
+  const NOTE_SECTIONS = {
+    general: [
+      `<p><strong>File size:</strong> There is no hard size limit, but files over roughly 50 MB may be slow to process or may not complete depending on your device's available memory. Files with many embedded images can be slow even when the file size appears small.</p>`,
+    ],
+    docx: [
+      `<p><strong>DOCX token count:</strong> The &ldquo;before&rdquo; count reflects the raw XML content inside the .docx archive &mdash; what an AI tool actually processes when you upload a DOCX directly. Actual counts depend on the model, platform, and how that platform processes uploaded files.</p>`,
+      `<p><strong>DOCX footnotes:</strong> Markdown exports use compact footnote references and definitions without return-link overhead.</p>`,
+      `<p><strong>DOCX images:</strong> By default, embedded image data is removed and available alt text is retained. If images are kept, Word may represent them as large embedded data URLs. An AI tool may not fetch or view an image even when a URL is present.</p>`,
+    ],
+    html: [
+      `<p><strong>URL pasting not yet supported:</strong> Browser security restrictions prevent fetching arbitrary URLs client-side. Save the page from your browser (&ldquo;Save Page As &rarr; Webpage, HTML Only&rdquo; or equivalent) and upload the resulting .html file.</p>`,
+      `<p><strong>Content extraction:</strong> Main content is identified using Mozilla Readability (the engine behind Firefox Reader View). Extraction is usually accurate but may occasionally mis-classify content &mdash; e.g. stripping a legitimate block that looks like a sidebar, or retaining a promotional block that resembles main content.</p>`,
+      `<p><strong>Token count:</strong> The &ldquo;before&rdquo; count reflects the page&rsquo;s visible HTML with scripts and styles stripped &mdash; roughly what an AI would process if given the raw page HTML. Dynamic content loaded after the initial page load is not included.</p>`,
+    ],
+    image: [
+      `<p><strong>A different &ldquo;before&rdquo; accounting method:</strong> The token cost of the original screenshot is estimated using the selected model&rsquo;s published image-tokenization formula (based on pixel dimensions), not <code>o200k_base</code>. This differs from every other conversion in this app, but it is the honest &ldquo;before&rdquo; comparison for how vision models actually charge for images.</p>`,
+      `<p><strong>OCR accuracy:</strong> Results depend heavily on image resolution, font clarity, and contrast. Low-quality or low-resolution screenshots may produce inaccurate or incomplete text.</p>`,
+      `<p><strong>Layout is lost:</strong> Spatial meaning (side-by-side comparisons, diagrams, charts) is not preserved &mdash; OCR captures readable text only, not visual structure.</p>`,
+      `<p><strong>Non-text content:</strong> Icons, images within the screenshot, and chart graphics are not represented in the Markdown output.</p>`,
+    ],
+    pptx: [
+      `<p><strong>Diagrams and SmartArt:</strong> May extract as fragmented or out-of-order text, or may not extract meaningfully at all.</p>`,
+      `<p><strong>Charts:</strong> Titles, series names, and any cached data table stored in the chart XML are extracted when available; the original backing spreadsheet is usually not recoverable.</p>`,
+      `<p><strong>Images inside slides are not OCR&rsquo;d:</strong> Any text that exists only inside an embedded image or screenshot on a slide is not captured in this version. This is a real gap for image-heavy decks.</p>`,
+      `<p><strong>Spatial meaning is lost:</strong> A two-column comparison slide or a flowchart becomes a linear text flow that may not preserve the visual relationships that gave the slide its meaning.</p>`,
+      `<p><strong>Text-first tool:</strong> For visually dense or diagram-heavy decks, professional document-processing tools often render slides as images and use a vision model directly. This tool optimizes for token reduction via text extraction &mdash; it trades some visual fidelity for a much lower token cost, and is not a full-fidelity converter.</p>`,
+    ],
+    pdf: [
+      `<p><strong>Text-layer PDFs only:</strong> Scanned or image-only PDFs will produce little or no extracted text &mdash; OCR for PDFs is not supported in this version.</p>`,
+      `<p><strong>Tables are best-effort:</strong> Complex tables, merged cells, or irregular layouts may convert incorrectly or lose structure. Low-confidence rows are left as plain text rather than forced into malformed table syntax.</p>`,
+      `<p><strong>Multi-column layouts:</strong> Academic papers, newsletters, and similar layouts may have reading-order errors, since column detection is heuristic.</p>`,
+      `<p><strong>Headings are inferred:</strong> Heading detection relies on font size and style and may be mis-detected in unusually formatted documents.</p>`,
+      `<p><strong>Non-text content:</strong> Embedded images, charts, and other visual content are not extracted or represented in the Markdown output.</p>`,
+      `<p><strong>Headers, footers, and page numbers</strong> are automatically stripped from the Markdown output but retained in the raw token baseline &mdash; this can make the token reduction look larger than the content-only savings alone.</p>`,
+    ],
+  };
+
   // ---- Tool registration ----
+
+  // Set by render(); applies a History session queued by the History view.
+  let applyPendingSession = null;
 
   ns.registerTool({
     id: "document-converter",
     name: "Token Saver",
-    description: "Convert DOCX files and saved web pages to Markdown",
+    description: "Convert Word, PowerPoint, PDF, web page, and screenshot files to Markdown",
+    // Keep DOM and in-progress state alive when navigating to another tool.
+    persist: true,
+    onShow() {
+      if (applyPendingSession) applyPendingSession();
+    },
     render(root) {
       let file = null, fileType = null, output = null, busy = false;
 
@@ -227,25 +282,17 @@
             <div class="panel-header converter-intro-header">
               <div>
                 <span class="panel-title">Token Saver</span>
-                <p class="cp-subtitle">Convert Word documents and saved web pages to Markdown before sharing with an AI tool.</p>
+                <p class="cp-subtitle">Convert Word documents, PowerPoint decks, PDFs, screenshots, and saved web pages to Markdown before sharing with an AI tool.</p>
               </div>
               <div class="coming-soon" aria-label="More input types coming soon"><span class="coming-label">Coming next</span>
-                <span>URL paste</span><span>PPT</span><span>PDF</span><span>Screenshots</span>
+                <span>URL paste</span><span>Scanned-PDF OCR</span>
               </div>
             </div>
           </section>
 
           <details class="converter-notes">
-            <summary>Important notes</summary>
-            <div class="converter-notes-body">
-              <p><strong>File size:</strong> There is no hard size limit, but files over roughly 50 MB may be slow to process or may not complete depending on your device's available memory. DOCX files with many embedded images can be slow even when the file size appears small.</p>
-              <p><strong>DOCX token count:</strong> The &ldquo;before&rdquo; count reflects the raw XML content inside the .docx archive &mdash; what an AI tool actually processes when you upload a DOCX directly. Actual counts depend on the model, platform, and how that platform processes uploaded files.</p>
-              <p><strong>DOCX footnotes:</strong> Markdown exports use compact footnote references and definitions without return-link overhead.</p>
-              <p><strong>DOCX images:</strong> By default, embedded image data is removed and available alt text is retained. If images are kept, Word may represent them as large embedded data URLs. An AI tool may not fetch or view an image even when a URL is present.</p>
-              <p><strong>Web page — URL pasting not yet supported:</strong> Browser security restrictions prevent fetching arbitrary URLs client-side. Save the page from your browser (&ldquo;Save Page As &rarr; Webpage, HTML Only&rdquo; or equivalent) and upload the resulting .html file.</p>
-              <p><strong>Web page — content extraction:</strong> Main content is identified using Mozilla Readability (the engine behind Firefox Reader View). Extraction is usually accurate but may occasionally mis-classify content &mdash; e.g. stripping a legitimate block that looks like a sidebar, or retaining a promotional block that resembles main content.</p>
-              <p><strong>Web page — token count:</strong> The &ldquo;before&rdquo; count reflects the page&rsquo;s visible HTML with scripts and styles stripped &mdash; roughly what an AI would process if given the raw page HTML. Dynamic content loaded after the initial page load is not included.</p>
-            </div>
+            <summary id="cv-notes-summary">Important notes</summary>
+            <div id="cv-notes-body" class="converter-notes-body"></div>
           </details>
 
           <div class="converter-layout">
@@ -254,10 +301,10 @@
                 <div class="panel-header"><h2 class="panel-title">Add a file</h2></div>
                 <div class="panel-body">
                   <div id="cv-drop" class="drop-area converter-drop" role="button" tabindex="0" aria-label="Choose a file">
-                    <span id="cv-drop-icon" class="drop-icon">DOCX / HTML</span>
-                    <strong id="cv-file-label" class="primary-text">Drop a .docx or .html file here</strong>
+                    <span id="cv-drop-icon" class="drop-icon">FILE</span>
+                    <strong id="cv-file-label" class="primary-text">Drop a .docx, .pptx, .pdf, .html, or screenshot file here</strong>
                     <span class="hint">or click to choose &mdash; processed only in this browser</span>
-                    <input id="cv-file" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.html,.htm,text/html" hidden>
+                    <input id="cv-file" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pdf,application/pdf,.html,.htm,text/html,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" hidden>
                   </div>
                   <p id="cv-error" class="converter-error" role="alert" hidden></p>
                 </div>
@@ -269,6 +316,29 @@
                   <fieldset id="cv-removals" class="remove-options"><legend class="sr-only">Elements to remove before converting</legend>
                     ${removals.map(([id, label, help]) => `<label class="remove-option"><input type="checkbox" value="${id}" checked><span><strong>${label}</strong><small>${help}</small></span></label>`).join("")}
                   </fieldset>
+                </div>
+              </section>
+
+              <section id="cv-pptx-options" class="panel" hidden>
+                <div class="panel-header"><h2 class="panel-title">Removal options</h2></div>
+                <div class="panel-body">
+                  <fieldset id="cv-pptx-toggles" class="remove-options"><legend class="sr-only">Elements to remove before converting</legend>
+                    ${pptxToggles.map(([id, label, help, on]) => `<label class="remove-option"><input type="checkbox" value="${id}"${on ? " checked" : ""}><span><strong>${label}</strong><small>${help}</small></span></label>`).join("")}
+                  </fieldset>
+                  <p class="hint" style="margin-top:.65rem">Checked content is removed from both sides: toggles recalculate the raw PPTX baseline and the Markdown output.</p>
+                </div>
+              </section>
+
+              <section id="cv-image-options" class="panel" hidden>
+                <div class="panel-header"><h2 class="panel-title">Baseline vision model</h2></div>
+                <div class="panel-body">
+                  <label class="field">
+                    <span>Model for the image-token estimate</span>
+                    <select id="cv-image-model" class="text-input converter-select">
+                      ${ns.IMAGE_TOKEN_MODELS.map((m) => `<option value="${m.id}">${escapeHtml(m.label)}</option>`).join("")}
+                    </select>
+                  </label>
+                  <p class="hint" style="margin-top:.65rem">The &ldquo;before&rdquo; number uses this model&rsquo;s published image-token formula &mdash; a different accounting method than the <code>o200k_base</code> text tokenizer used for the Markdown side.</p>
                 </div>
               </section>
 
@@ -335,32 +405,79 @@
       const copy     = $("#cv-copy", root);
       const download = $("#cv-download", root);
       const optionsEl = $("#cv-removals", root);
+      const pptxTogglesEl = $("#cv-pptx-toggles", root);
+      const imageModelEl  = $("#cv-image-model", root);
       const error    = $("#cv-error", root);
       const fail     = (message) => { error.textContent = message; error.hidden = !message; };
+
+      // Cached conversion state for live recalculation (PPTX toggles recompute
+      // both sides from cached per-part token counts; the image model dropdown
+      // recomputes only the baseline).
+      let pptxState = null, imageState = null, historyId = null;
+
+      const TYPE_META = {
+        docx:  { icon: "DOCX",  run: "Convert to Markdown" },
+        pptx:  { icon: "PPTX",  run: "Convert to Markdown" },
+        pdf:   { icon: "PDF",   run: "Convert to Markdown" },
+        html:  { icon: "HTML",  run: "Extract main content" },
+        image: { icon: "IMAGE", run: "Extract text (OCR)" },
+      };
+
+      function renderNotes(type) {
+        const sections = type ? [type] : ["docx", "html", "pptx", "pdf", "image"];
+        $("#cv-notes-summary", root).textContent = type ? `Important notes — ${TYPE_META[type].icon}` : "Important notes";
+        $("#cv-notes-body", root).innerHTML =
+          [...NOTE_SECTIONS.general, ...sections.flatMap((key) => NOTE_SECTIONS[key])].join("");
+      }
+      renderNotes(null);
 
       function select(selected) {
         if (!selected) return;
         const lower = selected.name.toLowerCase();
-        if (lower.endsWith(".docx")) {
-          fileType = "docx";
-        } else if (lower.endsWith(".html") || lower.endsWith(".htm")) {
-          fileType = "html";
-        } else {
+        if (lower.endsWith(".docx")) fileType = "docx";
+        else if (lower.endsWith(".pptx")) fileType = "pptx";
+        else if (lower.endsWith(".pdf")) fileType = "pdf";
+        else if (lower.endsWith(".html") || lower.endsWith(".htm")) fileType = "html";
+        else if (/\.(png|jpe?g|webp)$/.test(lower)) fileType = "image";
+        else {
           file = null; fileType = null; run.disabled = true;
-          return fail("Please choose a .docx, .html, or .htm file.");
+          return fail("Please choose a .docx, .pptx, .pdf, .html/.htm, or image (.png, .jpg, .webp) file.");
         }
-        file = selected; output = null; fail("");
+        file = selected; output = null; pptxState = null; imageState = null; historyId = null; fail("");
         run.disabled = false; copy.disabled = true; download.disabled = true;
         $("#cv-file-label", root).textContent = `${file.name} — ${bytes(file.size)}`;
-        $("#cv-drop-icon", root).textContent = fileType === "html" ? "HTML" : "DOCX";
+        $("#cv-drop-icon", root).textContent = TYPE_META[fileType].icon;
         $("#cv-docx-options", root).hidden = fileType !== "docx";
-        run.textContent = fileType === "html" ? "Extract main content" : "Convert to Markdown";
+        $("#cv-pptx-options", root).hidden = fileType !== "pptx";
+        $("#cv-image-options", root).hidden = fileType !== "image";
+        run.textContent = TYPE_META[fileType].run;
+        renderNotes(fileType);
       }
 
       function selectedOptions() {
         const checked = new Set($$("input:checked", optionsEl).map((el) => el.value));
         return Object.fromEntries(removals.map(([id]) => [id, checked.has(id)]));
       }
+
+      // The PPTX checkboxes use removal semantics (checked = removed) to match
+      // the DOCX panel; the pipeline works with include flags, so invert here.
+      function selectedPptxOptions() {
+        const checked = new Set($$("input:checked", pptxTogglesEl).map((el) => el.value));
+        return Object.fromEntries(pptxToggles.map(([id]) => [id, !checked.has(id)]));
+      }
+
+      // Rounded percentage that never overstates the extremes: 99.6% shows as
+      // ">99" rather than 100, and 0.4% shows as "<1" rather than 0.
+      const pctValue = (before, after) => {
+        const raw = Math.abs((before - after) / before) * 100;
+        const rounded = Math.round(raw);
+        if (rounded === 100 && raw < 100) return ">99";
+        if (rounded === 0 && raw > 0) return "<1";
+        return String(rounded);
+      };
+      const pctText = (before, after) => (before && after !== before)
+        ? ` (${pctValue(before, after)}% ${after < before ? "fewer" : "more"})`
+        : "";
 
       // Populates the shared results panel fields used by both pipelines.
       function populateResults({ beforeLabel, beforeTokensText, caveat, content, outBytes, beforeTokens, afterTokens, tokenCountError }) {
@@ -371,7 +488,7 @@
         $("#cv-before-size", root).textContent = bytes(file.size);
 
         const sizePct = file.size && outBytes !== file.size
-          ? ` (${Math.round(Math.abs((file.size - outBytes) / file.size) * 100)}% ${outBytes < file.size ? "smaller" : "larger"})`
+          ? ` (${pctValue(file.size, outBytes)}% ${outBytes < file.size ? "smaller" : "larger"})`
           : "";
         $("#cv-after-size", root).textContent = `${bytes(outBytes)}${sizePct}`;
 
@@ -379,10 +496,7 @@
         if (tokenCountError) {
           $("#cv-after-tokens", root).textContent = "Token estimate unavailable";
         } else {
-          const tokenPct = (beforeTokens && afterTokens !== beforeTokens)
-            ? ` (${Math.round(Math.abs((beforeTokens - afterTokens) / beforeTokens) * 100)}% ${afterTokens < beforeTokens ? "fewer" : "more"})`
-            : "";
-          $("#cv-after-tokens", root).textContent = `${number(afterTokens)} tokens${tokenPct}`;
+          $("#cv-after-tokens", root).textContent = `${number(afterTokens)} tokens${pctText(beforeTokens, afterTokens)}`;
         }
 
         $("#cv-token-caveat", root).innerHTML = caveat;
@@ -395,7 +509,77 @@
         copy.disabled = false;
         download.disabled = false;
         run.textContent = "Convert again";
+
+        // History: one entry per converted file, updated in place when the same
+        // conversion is recalculated (PPTX toggles, "Convert again").
+        const entry = {
+          timestamp: Date.now(),
+          sourceLabel: file.name,
+          inputType: "conversion",
+          fileType,
+          outputName: output.name,
+          beforeLabel,
+          beforeSizeText: bytes(file.size),
+          afterSizeText: `${bytes(outBytes)}${sizePct}`,
+          beforeTokensText,
+          afterTokensText: $("#cv-after-tokens", root).textContent,
+          beforeTokens: tokenCountError ? null : beforeTokens,
+          afterTokens: tokenCountError ? null : afterTokens,
+          caveat,
+          content: content.length > 200_000 ? content.slice(0, 200_000) : content,
+          contentTruncated: content.length > 200_000,
+        };
+        if (historyId) {
+          ns.history.update(historyId, entry);
+        } else {
+          historyId = `conversion-${Date.now()}`;
+          ns.history.add({ id: historyId, ...entry });
+        }
       }
+
+      // Rebuilds the results panel from a saved History session. The original
+      // file is not stored, so option panels stay hidden and Convert stays
+      // disabled until a new file is added.
+      function restoreSession(s) {
+        file = null; fileType = null; pptxState = null; imageState = null; historyId = null;
+        output = { content: s.content, mime: "text/markdown", name: s.outputName };
+        fail("");
+        run.disabled = true;
+        run.textContent = TYPE_META[s.fileType] ? TYPE_META[s.fileType].run : "Convert";
+        $("#cv-file-label", root).textContent = `${s.sourceLabel} — restored from History`;
+        $("#cv-drop-icon", root).textContent = TYPE_META[s.fileType] ? TYPE_META[s.fileType].icon : "FILE";
+        $("#cv-docx-options", root).hidden = true;
+        $("#cv-pptx-options", root).hidden = true;
+        $("#cv-image-options", root).hidden = true;
+        renderNotes(NOTE_SECTIONS[s.fileType] ? s.fileType : null);
+
+        $("#cv-empty", root).hidden = true;
+        $("#cv-output", root).hidden = false;
+        $("#cv-result-name", root).textContent = s.outputName;
+        $("#cv-before-label", root).textContent = s.beforeLabel;
+        $("#cv-before-size", root).textContent = s.beforeSizeText;
+        $("#cv-before-tokens", root).textContent = s.beforeTokensText;
+        $("#cv-after-size", root).textContent = s.afterSizeText;
+        $("#cv-after-tokens", root).textContent = s.afterTokensText;
+        $("#cv-token-caveat", root).innerHTML = s.caveat || "";
+        $("#cv-breakdown", root).hidden = true;
+
+        const limit = 24000;
+        $("#cv-preview", root).value = s.content.length > limit
+          ? `${s.content.slice(0, limit)}\n\n[Preview truncated. The download is complete.]`
+          : s.content;
+        $("#cv-messages", root).textContent = s.contentTruncated
+          ? "Restored from History. The stored Markdown was truncated to fit local storage — reconvert the original file for the full output."
+          : "Restored from History. Add the original file again to reconvert with different options.";
+        copy.disabled = false;
+        download.disabled = false;
+      }
+      applyPendingSession = () => {
+        if (!ns.pendingConverterSession) return;
+        const s = ns.pendingConverterSession;
+        ns.pendingConverterSession = null;
+        restoreSession(s);
+      };
 
       async function convertDocx() {
         if (!window.mammoth || !window.TurndownService) {
@@ -514,17 +698,219 @@
         $("#cv-messages", root).textContent = `${titleNote}Extraction completed. Review the preview to confirm Readability captured the right content.`;
       }
 
+      // -- Screenshot (OCR) pipeline --
+
+      // OCR text → lightly structured Markdown. Line breaks are preserved as
+      // detected; bullets/numbers become Markdown lists; headings are inferred
+      // only from Tesseract's line-height hints (a font-size proxy), never
+      // guessed from text alone.
+      function ocrMarkdown(ocr) {
+        const src = ocr.lines.length ? ocr.lines : ocr.text.split("\n").map((t) => ({ text: t, height: 0 }));
+        const heights = src.filter((l) => l.text.trim().length >= 4 && l.height > 0)
+          .map((l) => l.height).sort((a, b) => a - b);
+        const median = heights.length ? heights[Math.floor(heights.length / 2)] : 0;
+        const out = [];
+        for (const line of src) {
+          const text = line.text.replace(/\s+/g, " ").trim();
+          if (!text) { if (out.length && out[out.length - 1] !== "") out.push(""); continue; }
+          const bullet = text.match(/^[-–—•●○◦▪‣∙·*]\s+(.*)$/);
+          const numbered = text.match(/^\(?(\d{1,3})[.)]\s+(.*)$/);
+          if (bullet) out.push(`- ${bullet[1]}`);
+          else if (numbered) out.push(`${numbered[1]}. ${numbered[2]}`);
+          else if (median && line.height >= median * 1.45 && text.length <= 60 && !/[.,;:]$/.test(text)) {
+            out.push("", line.height >= median * 1.9 ? `# ${text}` : `## ${text}`, "");
+          } else out.push(text);
+        }
+        return `${out.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
+      }
+
+      // Rewrites the baseline card (and the after-card percentage) from the
+      // selected vision model. Called on conversion and on dropdown change.
+      function updateImageBaseline() {
+        if (!imageState) return;
+        const model = ns.IMAGE_TOKEN_MODELS.find((m) => m.id === imageModelEl.value) || ns.IMAGE_TOKEN_MODELS[0];
+        const beforeTokens = ns.estimateImageTokens(imageState.width, imageState.height, model.id);
+        $("#cv-before-label", root).textContent = `Image tokens (${model.short})`;
+        $("#cv-before-tokens", root).textContent =
+          `${number(beforeTokens)} estimated image tokens — ${imageState.width}×${imageState.height} px`;
+        $("#cv-after-tokens", root).textContent = `${number(imageState.afterTokens)} tokens${pctText(beforeTokens, imageState.afterTokens)}`;
+      }
+
+      async function convertImage() {
+        let width, height;
+        try {
+          const bitmap = await createImageBitmap(file);
+          width = bitmap.width; height = bitmap.height;
+          bitmap.close();
+        } catch {
+          fail("This image could not be read. Make sure it is a valid .png, .jpg, or .webp file.");
+          run.textContent = "Try again"; return;
+        }
+        run.textContent = "Recognizing text…";
+        const ocr = await ns.ocrImage(file, (p) => { run.textContent = `Recognizing text… ${Math.round(p * 100)}%`; });
+        const content = ocrMarkdown(ocr);
+        if (!content.trim()) {
+          fail("No readable text was found in this image. OCR works best on clear, high-contrast screenshots of text.");
+          run.textContent = "Try again"; return;
+        }
+        output = { content, mime: "text/markdown", name: `${file.name.replace(/\.(png|jpe?g|webp)$/i, "")}.md` };
+
+        let afterTokens = null, tokenCountError = false;
+        try { afterTokens = await ns.countTokens(content); } catch { tokenCountError = true; }
+        imageState = tokenCountError ? null : { width, height, afterTokens };
+        const beforeTokens = ns.estimateImageTokens(width, height, imageModelEl.value);
+
+        populateResults({
+          beforeLabel: "Image tokens",
+          beforeTokensText: `${number(beforeTokens)} estimated image tokens`,
+          caveat: `The &ldquo;before&rdquo; figure uses the selected vision model&rsquo;s <em>published image-token formula</em> based on pixel dimensions &mdash; not the <code>o200k_base</code> text tokenizer used for the Markdown side. The two numbers are different accounting methods; the comparison shows sending the raw screenshot vs. sending the extracted text.`,
+          content, outBytes: new Blob([content]).size, beforeTokens, afterTokens, tokenCountError,
+        });
+        updateImageBaseline();
+        $("#cv-breakdown", root).hidden = true;
+        $("#cv-messages", root).textContent = tokenCountError
+          ? "OCR completed, but the local tokenizer could not load, so no Markdown token estimate is shown."
+          : "OCR completed. Review the preview — accuracy depends on the screenshot's resolution and contrast.";
+      }
+
+      // -- PPTX pipeline --
+
+      async function convertPptx() {
+        if (!window.JSZip) {
+          fail("The zip library did not load. Check your connection and refresh the page.");
+          run.textContent = "Try again"; return;
+        }
+        const parsed = await ns.parsePptx(await file.arrayBuffer());
+        if (!parsed.slides.length) {
+          fail("No slides were found in this file. Make sure it is a valid, unencrypted .pptx file.");
+          run.textContent = "Try again"; return;
+        }
+        // Token-count every part once; toggle changes then recombine these
+        // cached counts arithmetically instead of re-reading the file.
+        const count = (s) => (s ? ns.countTokens(s) : Promise.resolve(0));
+        const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+        const [slidesFull, slidesSansFooters, notes, charts, layouts, masters, theme, presentation] = await Promise.all([
+          Promise.all(parsed.slides.map((s) => count(s.xml))),
+          Promise.all(parsed.slides.map((s) => (s.xmlSansFooters ? count(s.xmlSansFooters) : Promise.resolve(null)))),
+          Promise.all(parsed.slides.map((s) => count(s.notesXml))),
+          Promise.all(parsed.slides.map((s) =>
+            Promise.all(s.blocks.filter((b) => b.type === "chart" && b.chartXml).map((b) => count(b.chartXml))).then(sum))),
+          Promise.all(parsed.layouts.map(count)).then(sum),
+          Promise.all(parsed.masters.map(count)).then(sum),
+          Promise.all(parsed.themes.map(count)).then(sum),
+          count(parsed.presentationXml),
+        ]);
+        pptxState = { parsed, t: { slidesFull, slidesSansFooters, notes, charts, layouts, masters, theme, presentation } };
+        await recomputePptx();
+        const hiddenCount = parsed.slides.filter((s) => s.hidden).length;
+        $("#cv-messages", root).textContent =
+          `${parsed.slides.length} slide${parsed.slides.length === 1 ? "" : "s"} read` +
+          `${hiddenCount ? ` (${hiddenCount} hidden)` : ""}. Toggles update both token counts immediately.`;
+      }
+
+      async function recomputePptx() {
+        const { parsed, t } = pptxState;
+        const options = selectedPptxOptions();
+
+        let slideTokens = 0, notesTokens = 0, chartTokens = 0;
+        parsed.slides.forEach((slide, i) => {
+          if (slide.hidden && !options.hiddenSlides) return;
+          slideTokens += options.slideFooters ? t.slidesFull[i] : (t.slidesSansFooters[i] ?? t.slidesFull[i]);
+          if (options.speakerNotes) notesTokens += t.notes[i];
+          if (options.embeddedData) chartTokens += t.charts[i];
+        });
+        const layoutTokens = options.masterPlaceholders ? t.layouts : 0;
+        const masterTokens = options.masterPlaceholders ? t.masters : 0;
+        const beforeTokens = slideTokens + notesTokens + chartTokens + layoutTokens + masterTokens + t.theme + t.presentation;
+
+        const content = ns.pptxMarkdown(parsed, options);
+        output = { content, mime: "text/markdown", name: `${file.name.replace(/\.pptx$/i, "")}.md` };
+
+        let afterTokens = null, plainTokens = null, tokenCountError = false;
+        try {
+          [afterTokens, plainTokens] = await Promise.all([
+            ns.countTokens(content),
+            ns.countTokens(ns.plainTextOfMarkdown(content)),
+          ]);
+        } catch { tokenCountError = true; }
+
+        populateResults({
+          beforeLabel: "PPTX (raw XML)",
+          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} estimated XML tokens`,
+          caveat: `Token counts are local estimates using the <code>o200k_base</code> encoding. The PPTX count reflects the raw XML of the parts currently included by the toggles. Your AI tool may tokenize or process the file differently.`,
+          content, outBytes: new Blob([content]).size, beforeTokens, afterTokens, tokenCountError,
+        });
+
+        const breakdown = $("#cv-breakdown", root);
+        if (!tokenCountError && beforeTokens > 0) {
+          const segs = [
+            { label: "Slide content",         tokens: slideTokens,    color: "#2563eb" },
+            { label: "Speaker notes",         tokens: notesTokens,    color: "#0891b2" },
+            { label: "Layouts",               tokens: layoutTokens,   color: "#7c3aed" },
+            { label: "Masters",               tokens: masterTokens,   color: "#9333ea" },
+            { label: "Theme",                 tokens: t.theme,        color: "#d97706" },
+            { label: "Embedded objects",      tokens: chartTokens,    color: "#16a34a" },
+            { label: "Presentation settings", tokens: t.presentation, color: "#92400e" },
+          ].filter((s) => s.tokens > 0);
+          $("#cv-bar1-label", root).textContent = "PPTX input";
+          ns.renderSegBar($("#cv-bar1", root), segs, beforeTokens);
+          const fmtTokens = Math.max(0, afterTokens - plainTokens);
+          const mdSegs = [{ label: "Plain text", tokens: plainTokens, color: "#2563eb" }];
+          if (fmtTokens > 0) mdSegs.push({ label: "Markdown formatting", tokens: fmtTokens, color: "#d97706" });
+          ns.renderSegBar($("#cv-bar2", root), mdSegs, afterTokens);
+          $("#cv-bar2-row", root).hidden = false;
+          breakdown.hidden = false;
+        } else {
+          breakdown.hidden = true;
+        }
+      }
+
+      // -- PDF pipeline --
+
+      async function convertPdf() {
+        run.textContent = "Extracting text…";
+        const { pages, rawText, pageCount } = await ns.extractPdf(await file.arrayBuffer());
+        if (!rawText.trim()) {
+          fail("No text layer was found in this PDF — it appears to be scanned or image-only. OCR for PDFs is not supported yet.");
+          run.textContent = "Try again"; return;
+        }
+        const content = ns.pdfMarkdown(pages);
+        output = { content, mime: "text/markdown", name: `${file.name.replace(/\.pdf$/i, "")}.md` };
+
+        let beforeTokens = null, afterTokens = null, tokenCountError = false;
+        try {
+          [beforeTokens, afterTokens] = await Promise.all([ns.countTokens(rawText), ns.countTokens(content)]);
+        } catch { tokenCountError = true; }
+
+        populateResults({
+          beforeLabel: "PDF (extracted text)",
+          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} estimated text tokens`,
+          caveat: `Token counts are local estimates using the <code>o200k_base</code> encoding. The PDF count reflects the raw extracted text layer — including repeated headers, footers, page numbers, and broken line wraps — which the Markdown conversion cleans up.`,
+          content, outBytes: new Blob([content]).size, beforeTokens, afterTokens, tokenCountError,
+        });
+        $("#cv-breakdown", root).hidden = true;
+        $("#cv-messages", root).textContent =
+          `${pageCount} page${pageCount === 1 ? "" : "s"} extracted. Review the preview — headings, tables, and reading order are best-effort heuristics.`;
+      }
+
+      const PIPELINES = {
+        docx:  { fn: convertDocx,  busyLabel: "Converting…",       errorMsg: "This document could not be converted. Make sure it is a valid, unencrypted .docx file." },
+        pptx:  { fn: convertPptx,  busyLabel: "Converting…",       errorMsg: "This presentation could not be converted. Make sure it is a valid, unencrypted .pptx file." },
+        pdf:   { fn: convertPdf,   busyLabel: "Extracting…",       errorMsg: "This PDF could not be processed. Make sure it is a valid, unencrypted PDF file." },
+        html:  { fn: convertHtml,  busyLabel: "Extracting…",       errorMsg: "This file could not be processed. Make sure it is a valid HTML file." },
+        image: { fn: convertImage, busyLabel: "Preparing OCR…",    errorMsg: "This image could not be processed. Make sure it is a valid .png, .jpg, or .webp file, and check your connection — the OCR library loads on first use." },
+      };
+
       async function convert() {
         if (!file || busy) return;
+        const pipeline = PIPELINES[fileType];
         busy = true; fail(""); run.disabled = true;
-        run.textContent = fileType === "html" ? "Extracting…" : "Converting…";
+        run.textContent = pipeline.busyLabel;
         try {
-          if (fileType === "html") { await convertHtml(); } else { await convertDocx(); }
+          await pipeline.fn();
         } catch (err) {
           console.error(err);
-          fail(fileType === "html"
-            ? "This file could not be processed. Make sure it is a valid HTML file."
-            : "This document could not be converted. Make sure it is a valid, unencrypted .docx file.");
+          fail(pipeline.errorMsg);
           run.textContent = "Try again";
         } finally { busy = false; run.disabled = !file; }
       }
@@ -538,6 +924,15 @@
       run.addEventListener("click", convert);
       copy.addEventListener("click", () => output && copyWithFeedback(copy, () => output.content));
       download.addEventListener("click", () => output && save(output.content, output.name, output.mime));
+
+      // Live recalculation: PPTX toggles rebuild both sides from cached counts;
+      // the vision-model dropdown recalculates only the image baseline.
+      pptxTogglesEl.addEventListener("change", async () => {
+        if (fileType !== "pptx" || !pptxState || busy) return;
+        busy = true;
+        try { await recomputePptx(); } catch (err) { console.error(err); } finally { busy = false; }
+      });
+      imageModelEl.addEventListener("change", updateImageBaseline);
     },
   });
 })();

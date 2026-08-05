@@ -10,6 +10,9 @@ Convert Word documents and saved web pages to Markdown before sharing with an AI
 
 **Supported inputs:**
 - `.docx` — Word documents
+- `.pptx` — PowerPoint presentations
+- `.pdf` — PDFs with a text layer (scanned/image-only PDFs are not yet supported)
+- `.png` / `.jpg` / `.jpeg` / `.webp` — screenshots, converted via OCR
 - `.html` / `.htm` — web pages saved via "Save Page As → Webpage, HTML Only"
 
 **DOCX conversion:**
@@ -19,6 +22,22 @@ Convert Word documents and saved web pages to Markdown before sharing with an AI
 - Preserved hyperlink destinations
 - Before/after token comparison: DOCX "before" count reflects raw XML across all document parts — the actual data an AI tool processes when a DOCX is uploaded directly
 - Collapsible breakdown showing what's driving token cost in both the DOCX input (body, styles, footnotes, headers/footers, numbering, settings) and the Markdown output (plain text vs. formatting syntax)
+
+**PowerPoint conversion:**
+- Same architectural pattern as DOCX: the "before" count sums the raw XML parts inside the .pptx archive (slides, layouts, masters, theme, speaker notes, presentation settings)
+- Per-slide Markdown output: slide titles as headings, body placeholders as bullets, tables as Markdown tables, chart titles/series/cached data when available
+- Removal toggles (checked = removed, matching the DOCX panel) for speaker notes, hidden slides, slide numbers/footers, master/layout placeholder text, and embedded object data — toggling live-recalculates both the baseline and the Markdown output
+- Collapsible breakdown of the PPTX input by XML category and the Markdown output by plain text vs. formatting
+
+**PDF conversion:**
+- Text extraction with pdfjs-dist (Mozilla PDF.js) — text-layer only, no OCR yet
+- "Before" baseline is the naive per-page text dump (repeated headers/footers, page numbers, and broken line wraps left in), in the same spirit as the DOCX raw-XML baseline
+- Markdown conversion applies best-effort heuristics: headings from font-size deltas, wrapped-line rejoining, bullet/numbered list detection, conservative table reconstruction, and stripping of repeated headers/footers and page numbers
+
+**Screenshot conversion (OCR):**
+- Text recognized locally with tesseract.js; line breaks preserved, bullets/numbers converted to Markdown lists, headings inferred only from OCR line-height hints
+- The "before" number is different in kind from every other input: it estimates the image tokens a vision model would charge for the raw screenshot, using the provider's published pixel-dimension formula (Claude's 28×28-pixel patch rule with tier-specific downscaling, or GPT-4V/GPT-4o's 512-px tile rule) — selectable via a model dropdown
+- No component breakdown — image tokens aren't decomposable, and OCR text has no chrome/content split
 
 **Web page conversion:**
 - Content extracted using Mozilla Readability (the engine behind Firefox Reader View), stripping navigation, ads, sidebars, and other page chrome
@@ -31,6 +50,8 @@ Convert Word documents and saved web pages to Markdown before sharing with an AI
 > **Web page URLs:** URL pasting is not yet supported — browser security restrictions prevent fetching arbitrary URLs client-side. Save the page from your browser and upload the .html file instead.
 
 > **Token estimates:** Counting runs locally with an OpenAI-compatible tokenizer (`o200k_base`). Actual token counts and charges depend on the model, platform, and how that platform processes uploaded files.
+
+Conversions are saved to History (Markdown output plus the before/after comparison) and can be restored later. The tool also keeps its state when you navigate to another tool and back within the same visit.
 
 ### Document Tools
 
@@ -72,7 +93,7 @@ Plan an AI curriculum using the AI-Ready Lawyer framework. Drag competency notes
 
 ### History
 
-All document analyses and saved skill drafts are stored in your browser's local storage. Click any card to restore it in its original tool.
+Document analyses, Token Saver conversions, saved skill drafts, and curriculum plans are stored in your browser's local storage. Click any card to restore it in its original tool.
 
 ## Usage
 
@@ -93,9 +114,9 @@ All processing runs in your browser. No content is sent to any server. History i
 
 ### Token Saver
 - [ ] Add URL-to-Markdown conversion (URL paste path). Requires a lightweight server-side proxy or third-party CORS proxy to work around browser security restrictions on cross-origin fetches.
-- [ ] Add PowerPoint input. Start with structured JSON for slide order, titles, body text, speaker notes, tables, and media references.
-- [ ] Add PDF-to-Markdown conversion with layout-aware handling for headings, columns, tables, captions, headers, footers, and scanned pages.
-- [ ] Add screenshot and scanned-document OCR, with confidence indicators and optional layout reconstruction.
+- [x] Add PowerPoint input — slide order, titles, body text, speaker notes, tables, and chart data with include/exclude toggles.
+- [x] Add PDF-to-Markdown conversion — headings, wrapped lines, lists, best-effort tables, header/footer stripping. Scanned pages (OCR fallback) still open.
+- [x] Add screenshot OCR. Confidence indicators and scanned-PDF OCR (rasterize page → shared OCR module) still open.
 - [ ] Add batch conversion and a ZIP download for multiple inputs.
 - [ ] Add exact tokenizer choices for additional model and provider families.
 - [ ] Add a "semantic budget" preview that highlights content removed by each option before export.
@@ -115,5 +136,7 @@ All processing runs in your browser. No content is sent to any server. History i
 - [Turndown](https://github.com/mixmark-io/turndown) — HTML to Markdown conversion (CDN)
 - [@mozilla/readability](https://github.com/mozilla/readability) — web page content extraction, same engine as Firefox Reader View (CDN)
 - [js-tiktoken](https://www.npmjs.com/package/js-tiktoken) — private, local token estimation using the `o200k_base` encoding (CDN)
+- [pdfjs-dist](https://mozilla.github.io/pdf.js/) — client-side PDF text extraction (CDN, lazy-loaded)
+- [tesseract.js](https://tesseract.projectnaptha.com/) — local in-browser OCR for screenshots (CDN, lazy-loaded)
 - [Toast UI Editor](https://ui.toast.com/tui-editor) — rich-text and markdown editing (CDN)
 - [JSZip](https://strtd.github.io/jszip/) — `.docx` parsing and ZIP export (CDN)

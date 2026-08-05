@@ -36,6 +36,15 @@
       return parts.join(" &middot; ");
     }
 
+    if (session.inputType === "conversion") {
+      const parts = [`${escapeHtml((session.fileType || "file").toUpperCase())} &rarr; Markdown`];
+      if (session.beforeTokens != null && session.afterTokens != null) {
+        const fmt = (n) => new Intl.NumberFormat().format(n);
+        parts.push(`${fmt(session.beforeTokens)} &rarr; ${fmt(session.afterTokens)} tokens`);
+      }
+      return parts.join(" &middot; ");
+    }
+
     if (session.inputType === "skill") {
       const words = (session.body || "").trim().split(/\s+/).filter(Boolean).length;
       const parts = [`${words} word${words === 1 ? "" : "s"}`];
@@ -69,7 +78,7 @@
             ${historyNoticeHtml()}
             <div class="history-empty">
               <p>No history yet.</p>
-              <p class="hint" style="margin-top:0.5rem">Analyze a document, save a skill, or save a curriculum plan to get started.</p>
+              <p class="hint" style="margin-top:0.5rem">Analyze a document, convert a file with Token Saver, save a skill, or save a curriculum plan to get started.</p>
             </div>
           </div>
         `;
@@ -105,7 +114,7 @@
                 ${historyNoticeHtml()}
                 <div class="history-empty">
                   <p>No history yet.</p>
-                  <p class="hint" style="margin-top:0.5rem">Analyze a document, save a skill, or save a curriculum plan to get started.</p>
+                  <p class="hint" style="margin-top:0.5rem">Analyze a document, convert a file with Token Saver, save a skill, or save a curriculum plan to get started.</p>
                 </div>
               </div>
             `;
@@ -117,7 +126,10 @@
         if (card) {
           const session = ns.history.get(card.dataset.sessionId);
           if (session) {
-            if (session.inputType === "skill") {
+            if (session.inputType === "conversion") {
+              ns.pendingConverterSession = session;
+              window.location.hash = "document-converter";
+            } else if (session.inputType === "skill") {
               ns.pendingSkillSession = session;
               window.location.hash = "skill-creator";
             } else if (session.inputType === "curriculum") {
@@ -139,7 +151,7 @@
             ${historyNoticeHtml()}
             <div class="history-empty">
               <p>No history yet.</p>
-              <p class="hint" style="margin-top:0.5rem">Analyze a document, save a skill, or save a curriculum plan to get started.</p>
+              <p class="hint" style="margin-top:0.5rem">Analyze a document, convert a file with Token Saver, save a skill, or save a curriculum plan to get started.</p>
             </div>
           </div>
         `;
@@ -148,18 +160,15 @@
   });
 
   function sessionCardHtml(s) {
-    const isSkill = s.inputType === "skill";
-    const isCurriculum = s.inputType === "curriculum";
-    const badge = isSkill
-      ? `<span class="session-type-badge session-type-skill">SKILL</span>`
-      : isCurriculum
-        ? `<span class="session-type-badge session-type-curriculum">PLAN</span>`
-        : `<span class="session-type-badge session-type-doc">DOC</span>`;
-    const title = isSkill
-      ? "Click to restore this skill"
-      : isCurriculum
-        ? "Click to restore this curriculum plan"
-        : "Click to restore this analysis";
+    const kinds = {
+      skill:      { badge: `<span class="session-type-badge session-type-skill">SKILL</span>`,           title: "Click to restore this skill" },
+      curriculum: { badge: `<span class="session-type-badge session-type-curriculum">PLAN</span>`,       title: "Click to restore this curriculum plan" },
+      conversion: { badge: `<span class="session-type-badge session-type-conversion">TOKENS</span>`,     title: "Click to restore this conversion" },
+    };
+    const kind = kinds[s.inputType] ||
+      { badge: `<span class="session-type-badge session-type-doc">DOC</span>`, title: "Click to restore this analysis" };
+    const badge = kind.badge;
+    const title = kind.title;
     return `
       <div class="session-card" data-session-id="${escapeHtml(s.id)}" role="button" tabindex="0" title="${title}">
         <div class="session-info">

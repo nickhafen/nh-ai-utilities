@@ -28,6 +28,41 @@
     return `${body.textContent.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
   };
 
+  // Strips Markdown syntax to approximate the plain-text content of a Markdown
+  // string. Used for the "plain text vs. formatting overhead" output split when
+  // there is no HTML intermediate (PPTX, PDF, and OCR pipelines).
+  ns.plainTextOfMarkdown = function plainTextOfMarkdown(md) {
+    const text = String(md || "")
+      .replace(/^```.*$/gm, "")                 // code fence markers
+      .replace(/^\|? *:?-{3,}[-|: ]*$/gm, "")   // table separator rows + hrules
+      .replace(/^[ \t]*>+ ?/gm, "")             // blockquote markers
+      .replace(/^[ \t]*#{1,6} +/gm, "")         // heading markers
+      .replace(/^[ \t]*[-*+] +/gm, "")          // bullet markers
+      .replace(/^[ \t]*\d+\. +/gm, "")          // numbered-list markers
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")  // links
+      .replace(/(\*\*|__|~~|`)/g, "")           // emphasis and code spans
+      .replace(/ *\| */g, " ")                  // table pipes
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    return `${text}\n`;
+  };
+
+  // Renders rows (array of string arrays, first row = header) as a Markdown
+  // table, padding ragged rows to a uniform width.
+  ns.markdownTable = function markdownTable(rows) {
+    if (!rows.length) return "";
+    const width = Math.max(...rows.map((row) => row.length));
+    const norm = rows.map((row) => {
+      const cells = row.map((cell) => String(cell ?? "").replace(/\|/g, "\\|").replace(/\s+/g, " ").trim());
+      while (cells.length < width) cells.push("");
+      return cells;
+    });
+    const line = (row) => `| ${row.join(" | ")} |`;
+    return `${line(norm[0])}\n${line(Array(width).fill("---"))}\n${norm.slice(1).map(line).join("\n")}`;
+  };
+
   // -- Segmented bar --
 
   // Renders a phone-storage-style horizontal segmented bar into `container`.
