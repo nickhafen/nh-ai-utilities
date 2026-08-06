@@ -757,8 +757,7 @@
         if (!imageState) return;
         const model = ns.IMAGE_TOKEN_MODELS.find((m) => m.id === imageModelEl.value) || ns.IMAGE_TOKEN_MODELS[0];
         const beforeTokens = ns.estimateImageTokens(imageState.width, imageState.height, model.id);
-        $("#cv-before-tokens", root).textContent =
-          `${number(beforeTokens)} tokens — ${imageState.width}×${imageState.height} px`;
+        $("#cv-before-tokens", root).textContent = `${number(beforeTokens)} tokens`;
         $("#cv-after-tokens", root).innerHTML = `${number(imageState.afterTokens)} tokens${pctSpan(beforeTokens, imageState.afterTokens, "fewer", "more")}`;
       }
 
@@ -788,7 +787,7 @@
 
         populateResults({
           beforeLabel: "IMG",
-          beforeTokensText: `${number(beforeTokens)} tokens — ${width}×${height} px`,
+          beforeTokensText: `${number(beforeTokens)} tokens`,
           caveat: CAVEATS.image,
           content, outBytes: new Blob([content]).size, beforeTokens, afterTokens, tokenCountError,
         });

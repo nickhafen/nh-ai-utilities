@@ -140,6 +140,16 @@
     return extractFromPaste(editor.innerHTML, editor.textContent);
   }
 
+  const IMAGE_EXT = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+
+  // Wraps a clipboard image Blob as a File so it can flow through the same
+  // applyFile() path as a dropped/chosen file, giving it an extension
+  // detectDocumentFileType() recognizes (it sniffs by filename, not MIME).
+  function imageBlobToFile(blob) {
+    const ext = IMAGE_EXT[blob.type] || "png";
+    return new File([blob], `pasted-image.${ext}`, { type: blob.type });
+  }
+
   function pasteAreaLabel(editor) {
     const first = (editor.textContent || "").trim().split("\n")[0].trim();
     const preview = first.slice(0, 60);
@@ -203,7 +213,10 @@
                 <div class="doctools-rail-divider"><span>or</span></div>
 
                 <div class="doctools-paste-block">
-                  <label class="paste-label" for="dt-paste-area">Paste text</label>
+                  <div class="doctools-paste-label-row">
+                    <label class="paste-label" for="dt-paste-area">Paste text</label>
+                    <button id="dt-paste-clipboard" class="btn btn-subtle btn-sm doctools-clipboard-btn" type="button">Paste from clipboard</button>
+                  </div>
                   <div
                     id="dt-paste-area"
                     class="rich-input doctools-paste-area"
@@ -257,6 +270,7 @@
       const removeBtn    = $("#dt-remove", root);
       const pasteArea    = $("#dt-paste-area", root);
       const pasteApplyBtn = $("#dt-paste-apply", root);
+      const pasteClipboardBtn = $("#dt-paste-clipboard", root);
       const railError    = $("#dt-rail-error", root);
       const railFail     = (message) => { railError.textContent = message; railError.hidden = !message; };
 
@@ -440,8 +454,14 @@
       dropzone.addEventListener("drop", (e) => applyFile(e.dataTransfer.files[0]));
       fileInput.addEventListener("change", () => applyFile(fileInput.files[0]));
       pasteArea.addEventListener("paste", (e) => {
-        e.preventDefault();
         const cb = e.clipboardData;
+        const imageFile = Array.from(cb.files || []).find((f) => f.type.startsWith("image/"));
+        if (imageFile) {
+          e.preventDefault();
+          applyFile(imageFile);
+          return;
+        }
+        e.preventDefault();
         const html = cb.getData("text/html");
         const plain = cb.getData("text/plain");
         const frag = html
@@ -449,7 +469,44 @@
           : (() => { const f = document.createDocumentFragment(); f.appendChild(document.createTextNode(plain)); return f; })();
         insertAtCursor(pasteArea, frag);
       });
+      async function pasteFromClipboard() {
+        try {
+          let frag = null;
+          if (navigator.clipboard && navigator.clipboard.read) {
+            const items = await navigator.clipboard.read();
+            let html = "", plain = "", imageType = null;
+            for (const item of items) {
+              imageType = item.types.find((t) => t.startsWith("image/")) || imageType;
+              if (item.types.includes("text/html")) html = await (await item.getType("text/html")).text();
+              if (item.types.includes("text/plain")) plain = await (await item.getType("text/plain")).text();
+            }
+            if (imageType && !html && !plain) {
+              const item = items.find((it) => it.types.includes(imageType));
+              const blob = await item.getType(imageType);
+              await applyFile(imageBlobToFile(blob));
+              return;
+            }
+            if (!html && !plain) throw new Error("empty");
+            frag = html
+              ? htmlToFragment(html)
+              : (() => { const f = document.createDocumentFragment(); f.appendChild(document.createTextNode(plain)); return f; })();
+          } else if (navigator.clipboard && navigator.clipboard.readText) {
+            const text = await navigator.clipboard.readText();
+            if (!text) throw new Error("empty");
+            frag = document.createDocumentFragment();
+            frag.appendChild(document.createTextNode(text));
+          } else {
+            throw new Error("unsupported");
+          }
+          insertAtCursor(pasteArea, frag);
+          railFail("");
+        } catch {
+          railFail("Couldn't read the clipboard — your browser may need permission, or try Ctrl+V in the box instead.");
+        }
+      }
+
       pasteApplyBtn.addEventListener("click", applyPaste);
+      pasteClipboardBtn.addEventListener("click", pasteFromClipboard);
       removeBtn.addEventListener("click", clearDocument);
 
       $("#dt-workflow-list", root).addEventListener("click", (e) => {
