@@ -220,6 +220,17 @@
     }, 2000);
   }
 
+  // ---- Token-estimate explainer text, per input type ----
+  // Shown in each type's "Token estimate settings" panel, not in the results
+  // box — these are static (no per-conversion numbers). PDF's is dynamic
+  // (embeds computed token counts) and is built in recomputePdf() instead.
+  const CAVEATS = {
+    docx:  `Token counts are local estimates using the <code>o200k_base</code> encoding. The DOCX count reflects raw XML across all document parts. Your AI tool may tokenize or process the file differently.`,
+    pptx:  `Token counts are local estimates using the <code>o200k_base</code> encoding. The PPTX count reflects the raw XML of the parts currently included by the toggles. Your AI tool may tokenize or process the file differently.`,
+    html:  `Token counts are local estimates using the <code>o200k_base</code> encoding. The HTML count reflects visible markup with scripts and styles stripped. Your AI tool may tokenize differently.`,
+    image: `The &ldquo;before&rdquo; figure uses the selected vision model&rsquo;s <em>published image-token formula</em> based on pixel dimensions &mdash; not the <code>o200k_base</code> text tokenizer used for the Markdown side. The two numbers are different accounting methods; the comparison shows sending the raw screenshot vs. sending the extracted text.`,
+  };
+
   // ---- Important-notes content, per input type ----
 
   const NOTE_SECTIONS = {
@@ -256,40 +267,22 @@
       `<p><strong>Headings are inferred:</strong> Heading detection relies on font size and style and may be mis-detected in unusually formatted documents.</p>`,
       `<p><strong>Non-text content:</strong> Embedded images, charts, and other visual content are not extracted or represented in the Markdown output.</p>`,
       `<p><strong>Headers, footers, and page numbers</strong> are automatically stripped from the Markdown output but retained in the raw token baseline &mdash; this can make the token reduction look larger than the content-only savings alone.</p>`,
+      `<p><strong>The &ldquo;before&rdquo; baseline combines two estimates:</strong> this tool's own naive text extraction, plus an estimated image-token cost for each page (many AI platforms rasterize PDF pages to images as well as extracting text). The image-token half uses your selected model's published formula &mdash; configurable in Removal options &mdash; applied to each page's dimensions at an assumed 150 DPI render, since no platform publishes the resolution it actually rasterizes PDF pages at. It's a closer approximation of a real PDF upload than text alone, but still an estimate. On documents with little repeated header/footer text to strip, Markdown's own syntax (headings, lists, table formatting) can outweigh the text-side savings and the token count can go up instead of down.</p>`,
     ],
   };
 
-  // ---- Tool registration ----
-
-  // Set by render(); applies a History session queued by the History view.
-  let applyPendingSession = null;
-
-  ns.registerTool({
-    id: "document-converter",
-    name: "Token Saver",
-    description: "Convert Word, PowerPoint, PDF, web page, and screenshot files to Markdown",
-    // Keep DOM and in-progress state alive when navigating to another tool.
-    persist: true,
-    onShow() {
-      if (applyPendingSession) applyPendingSession();
-    },
-    render(root) {
+  // ---- Convert-to-Markdown workflow ----
+  //
+  // Mounted by the Document Tools rail (js/tools/document-tools.js) into a
+  // container it owns. This module no longer owns file intake — the rail
+  // detects the file type and calls setFile()/reset() on the API this
+  // returns. Everything downstream (options, pipelines, results, History) is
+  // unchanged from when this ran as its own "Token Saver" tool.
+  ns.mountConvertWorkflow = function mountConvertWorkflow(root) {
       let file = null, fileType = null, output = null, busy = false;
 
       root.innerHTML = `
-        <section class="tool-view converter-tool">
-          <section class="panel converter-intro">
-            <div class="panel-header converter-intro-header">
-              <div>
-                <span class="panel-title">Token Saver</span>
-                <p class="cp-subtitle">Convert Word documents, PowerPoint decks, PDFs, screenshots, and saved web pages to Markdown before sharing with an AI tool.</p>
-              </div>
-              <div class="coming-soon" aria-label="More input types coming soon"><span class="coming-label">Coming next</span>
-                <span>URL paste</span><span>Scanned-PDF OCR</span>
-              </div>
-            </div>
-          </section>
-
+        <div class="converter-tool">
           <details class="converter-notes">
             <summary id="cv-notes-summary">Important notes</summary>
             <div id="cv-notes-body" class="converter-notes-body"></div>
@@ -297,18 +290,7 @@
 
           <div class="converter-layout">
             <div class="converter-controls">
-              <section class="panel">
-                <div class="panel-header"><h2 class="panel-title">Add a file</h2></div>
-                <div class="panel-body">
-                  <div id="cv-drop" class="drop-area converter-drop" role="button" tabindex="0" aria-label="Choose a file">
-                    <span id="cv-drop-icon" class="drop-icon">FILE</span>
-                    <strong id="cv-file-label" class="primary-text">Drop a .docx, .pptx, .pdf, .html, or screenshot file here</strong>
-                    <span class="hint">or click to choose &mdash; processed only in this browser</span>
-                    <input id="cv-file" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.pdf,application/pdf,.html,.htm,text/html,.png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" hidden>
-                  </div>
-                  <p id="cv-error" class="converter-error" role="alert" hidden></p>
-                </div>
-              </section>
+              <p id="cv-error" class="converter-error" role="alert" hidden></p>
 
               <section id="cv-docx-options" class="panel" hidden>
                 <div class="panel-header"><h2 class="panel-title">Removal options</h2></div>
@@ -316,6 +298,12 @@
                   <fieldset id="cv-removals" class="remove-options"><legend class="sr-only">Elements to remove before converting</legend>
                     ${removals.map(([id, label, help]) => `<label class="remove-option"><input type="checkbox" value="${id}" checked><span><strong>${label}</strong><small>${help}</small></span></label>`).join("")}
                   </fieldset>
+                  <details class="token-breakdown">
+                    <summary class="token-breakdown-toggle">Token estimate settings</summary>
+                    <div class="token-breakdown-body">
+                      <p class="hint">${CAVEATS.docx}</p>
+                    </div>
+                  </details>
                 </div>
               </section>
 
@@ -326,11 +314,43 @@
                     ${pptxToggles.map(([id, label, help, on]) => `<label class="remove-option"><input type="checkbox" value="${id}"${on ? " checked" : ""}><span><strong>${label}</strong><small>${help}</small></span></label>`).join("")}
                   </fieldset>
                   <p class="hint" style="margin-top:.65rem">Checked content is removed from both sides: toggles recalculate the raw PPTX baseline and the Markdown output.</p>
+                  <details class="token-breakdown">
+                    <summary class="token-breakdown-toggle">Token estimate settings</summary>
+                    <div class="token-breakdown-body">
+                      <p class="hint">${CAVEATS.pptx}</p>
+                    </div>
+                  </details>
+                </div>
+              </section>
+
+              <section id="cv-html-options" class="panel" hidden>
+                <div class="panel-header"><h2 class="panel-title">Token estimate settings</h2></div>
+                <div class="panel-body">
+                  <p class="hint">${CAVEATS.html}</p>
+                </div>
+              </section>
+
+              <section id="cv-pdf-options" class="panel" hidden>
+                <div class="panel-header"><h2 class="panel-title">Removal options</h2></div>
+                <div class="panel-body">
+                  <p class="hint">Headers, footers, and page numbers are always stripped from the Markdown output — see Important notes for details.</p>
+                  <details id="cv-pdf-settings" class="token-breakdown">
+                    <summary class="token-breakdown-toggle">Token estimate settings</summary>
+                    <div class="token-breakdown-body">
+                      <label class="field">
+                        <span>Model for the raw-PDF-upload estimate</span>
+                        <select id="cv-pdf-model" class="text-input converter-select">
+                          ${ns.IMAGE_TOKEN_MODELS.map((m) => `<option value="${m.id}"${m.id === "gpt4v" ? " selected" : ""}>${escapeHtml(m.label)}</option>`).join("")}
+                        </select>
+                      </label>
+                      <p id="cv-pdf-caveat" class="hint" style="margin-top:.65rem">Estimates each page's image-token cost using the selected model's published formula, assuming a 150 DPI render — providers don&rsquo;t publish the resolution they actually rasterize PDF pages at, so this is an approximation on top of an approximation.</p>
+                    </div>
+                  </details>
                 </div>
               </section>
 
               <section id="cv-image-options" class="panel" hidden>
-                <div class="panel-header"><h2 class="panel-title">Baseline vision model</h2></div>
+                <div class="panel-header"><h2 class="panel-title">Token estimate settings</h2></div>
                 <div class="panel-body">
                   <label class="field">
                     <span>Model for the image-token estimate</span>
@@ -338,7 +358,7 @@
                       ${ns.IMAGE_TOKEN_MODELS.map((m) => `<option value="${m.id}">${escapeHtml(m.label)}</option>`).join("")}
                     </select>
                   </label>
-                  <p class="hint" style="margin-top:.65rem">The &ldquo;before&rdquo; number uses this model&rsquo;s published image-token formula &mdash; a different accounting method than the <code>o200k_base</code> text tokenizer used for the Markdown side.</p>
+                  <p class="hint" style="margin-top:.65rem">${CAVEATS.image}</p>
                 </div>
               </section>
 
@@ -348,7 +368,7 @@
             <section class="panel converter-result" aria-live="polite">
               <div class="panel-header">
                 <div>
-                  <h2 class="panel-title">Review the savings</h2>
+                  <h2 class="panel-title">Markdown Output</h2>
                   <p id="cv-result-name" class="converter-result-name">Your converted file will appear here.</p>
                 </div>
                 <div class="panel-actions">
@@ -360,23 +380,26 @@
                 <div id="cv-empty" class="converter-empty">
                   <span class="converter-empty-mark">Aa</span>
                   <strong>Ready when you are</strong>
-                  <p>Add a DOCX or HTML file to get started.</p>
+                  <p>Add a file in the Document panel on the left to get started.</p>
                 </div>
                 <div id="cv-output" hidden>
-                  <div class="savings-grid">
-                    <div class="savings-card">
-                      <span id="cv-before-label">Before</span>
-                      <strong id="cv-before-size">--</strong>
-                      <small id="cv-before-tokens">-- estimated tokens</small>
+                  <div class="stat-compare">
+                    <div class="stat-compare-row stat-compare-head">
+                      <span id="cv-before-label" class="stat-compare-side">Before</span>
+                      <span class="stat-compare-vs" aria-hidden="true">&#10140;</span>
+                      <span class="stat-compare-side stat-compare-side-after">MD</span>
                     </div>
-                    <div class="savings-arrow" aria-hidden="true">to</div>
-                    <div class="savings-card savings-card-after">
-                      <span>Markdown</span>
-                      <strong id="cv-after-size">--</strong>
-                      <small id="cv-after-tokens">-- tokens</small>
+                    <div class="stat-compare-row">
+                      <span id="cv-before-tokens" class="stat-compare-value">--</span>
+                      <span class="stat-compare-category">Tokens</span>
+                      <span id="cv-after-tokens" class="stat-compare-value">-- tokens</span>
+                    </div>
+                    <div class="stat-compare-row">
+                      <span id="cv-before-size" class="stat-compare-value">--</span>
+                      <span class="stat-compare-category">File size</span>
+                      <span id="cv-after-size" class="stat-compare-value">--</span>
                     </div>
                   </div>
-                  <p id="cv-token-caveat" class="token-caveat"></p>
                   <details id="cv-breakdown" class="token-breakdown" hidden>
                     <summary class="token-breakdown-toggle">Token composition breakdown</summary>
                     <div class="token-breakdown-body">
@@ -390,30 +413,29 @@
                       </div>
                     </div>
                   </details>
-                  <label class="preview-label" for="cv-preview">Output preview</label>
+                  <label class="preview-label" for="cv-preview">Preview</label>
                   <textarea id="cv-preview" class="textarea output converter-preview" readonly></textarea>
                   <p id="cv-messages" class="hint"></p>
                 </div>
               </div>
             </section>
           </div>
-        </section>`;
+        </div>`;
 
-      const input    = $("#cv-file", root);
-      const drop     = $("#cv-drop", root);
       const run      = $("#cv-run", root);
       const copy     = $("#cv-copy", root);
       const download = $("#cv-download", root);
       const optionsEl = $("#cv-removals", root);
       const pptxTogglesEl = $("#cv-pptx-toggles", root);
       const imageModelEl  = $("#cv-image-model", root);
+      const pdfModelEl    = $("#cv-pdf-model", root);
       const error    = $("#cv-error", root);
       const fail     = (message) => { error.textContent = message; error.hidden = !message; };
 
       // Cached conversion state for live recalculation (PPTX toggles recompute
       // both sides from cached per-part token counts; the image model dropdown
       // recomputes only the baseline).
-      let pptxState = null, imageState = null, historyId = null;
+      let pptxState = null, imageState = null, pdfState = null, historyId = null;
 
       const TYPE_META = {
         docx:  { icon: "DOCX",  run: "Convert to Markdown" },
@@ -431,27 +453,37 @@
       }
       renderNotes(null);
 
-      function select(selected) {
-        if (!selected) return;
-        const lower = selected.name.toLowerCase();
-        if (lower.endsWith(".docx")) fileType = "docx";
-        else if (lower.endsWith(".pptx")) fileType = "pptx";
-        else if (lower.endsWith(".pdf")) fileType = "pdf";
-        else if (lower.endsWith(".html") || lower.endsWith(".htm")) fileType = "html";
-        else if (/\.(png|jpe?g|webp)$/.test(lower)) fileType = "image";
-        else {
-          file = null; fileType = null; run.disabled = true;
-          return fail("Please choose a .docx, .pptx, .pdf, .html/.htm, or image (.png, .jpg, .webp) file.");
-        }
-        file = selected; output = null; pptxState = null; imageState = null; historyId = null; fail("");
+      // Called by the Document Tools rail whenever a new compatible file is
+      // added or an existing one is replaced. `type` is one of TYPE_META's
+      // keys, already detected by the rail via ns.detectDocumentFileType.
+      function setFile(newFile, type) {
+        file = newFile; fileType = type; output = null; pptxState = null; imageState = null; pdfState = null; historyId = null; fail("");
         run.disabled = false; copy.disabled = true; download.disabled = true;
-        $("#cv-file-label", root).textContent = `${file.name} — ${bytes(file.size)}`;
-        $("#cv-drop-icon", root).textContent = TYPE_META[fileType].icon;
         $("#cv-docx-options", root).hidden = fileType !== "docx";
         $("#cv-pptx-options", root).hidden = fileType !== "pptx";
+        $("#cv-html-options", root).hidden = fileType !== "html";
+        $("#cv-pdf-options", root).hidden = fileType !== "pdf";
         $("#cv-image-options", root).hidden = fileType !== "image";
         run.textContent = TYPE_META[fileType].run;
+        $("#cv-empty", root).hidden = false;
+        $("#cv-output", root).hidden = true;
         renderNotes(fileType);
+      }
+
+      // Called when the rail's file is removed, clearing this workflow back
+      // to its initial empty state.
+      function reset() {
+        file = null; fileType = null; output = null; pptxState = null; imageState = null; pdfState = null; historyId = null; fail("");
+        run.disabled = true; copy.disabled = true; download.disabled = true;
+        run.textContent = "Convert";
+        $("#cv-docx-options", root).hidden = true;
+        $("#cv-pptx-options", root).hidden = true;
+        $("#cv-html-options", root).hidden = true;
+        $("#cv-pdf-options", root).hidden = true;
+        $("#cv-image-options", root).hidden = true;
+        $("#cv-empty", root).hidden = false;
+        $("#cv-output", root).hidden = true;
+        renderNotes(null);
       }
 
       function selectedOptions() {
@@ -475,10 +507,14 @@
         if (rounded === 0 && raw > 0) return "<1";
         return String(rounded);
       };
-      const pctText = (before, after) => (before && after !== before)
-        ? ` (${pctValue(before, after)}% ${after < before ? "fewer" : "more"})`
-        : "";
-
+      // Builds the colored "(x% fewer/more)" fragment used next to an after
+      // value: green when the after side is smaller, red when it grew.
+      const pctSpan = (before, after, downWord, upWord) => {
+        if (!before || after === before) return "";
+        const cls = after < before ? "is-good" : "is-bad";
+        const word = after < before ? downWord : upWord;
+        return ` <span class="stat-compare-pct ${cls}">(${pctValue(before, after)}% ${word})</span>`;
+      };
       // Populates the shared results panel fields used by both pipelines.
       function populateResults({ beforeLabel, beforeTokensText, caveat, content, outBytes, beforeTokens, afterTokens, tokenCountError }) {
         $("#cv-before-label", root).textContent = beforeLabel;
@@ -490,16 +526,14 @@
         const sizePct = file.size && outBytes !== file.size
           ? ` (${pctValue(file.size, outBytes)}% ${outBytes < file.size ? "smaller" : "larger"})`
           : "";
-        $("#cv-after-size", root).textContent = `${bytes(outBytes)}${sizePct}`;
+        $("#cv-after-size", root).innerHTML = `${bytes(outBytes)}${pctSpan(file.size, outBytes, "smaller", "larger")}`;
 
         $("#cv-before-tokens", root).textContent = beforeTokensText;
         if (tokenCountError) {
           $("#cv-after-tokens", root).textContent = "Token estimate unavailable";
         } else {
-          $("#cv-after-tokens", root).textContent = `${number(afterTokens)} tokens${pctText(beforeTokens, afterTokens)}`;
+          $("#cv-after-tokens", root).innerHTML = `${number(afterTokens)} tokens${pctSpan(beforeTokens, afterTokens, "fewer", "more")}`;
         }
-
-        $("#cv-token-caveat", root).innerHTML = caveat;
 
         const limit = 24000;
         $("#cv-preview", root).value = content.length > limit
@@ -539,17 +573,17 @@
 
       // Rebuilds the results panel from a saved History session. The original
       // file is not stored, so option panels stay hidden and Convert stays
-      // disabled until a new file is added.
+      // disabled until a new file is added via the rail.
       function restoreSession(s) {
-        file = null; fileType = null; pptxState = null; imageState = null; historyId = null;
+        file = null; fileType = null; pptxState = null; imageState = null; pdfState = null; historyId = null;
         output = { content: s.content, mime: "text/markdown", name: s.outputName };
         fail("");
         run.disabled = true;
         run.textContent = TYPE_META[s.fileType] ? TYPE_META[s.fileType].run : "Convert";
-        $("#cv-file-label", root).textContent = `${s.sourceLabel} — restored from History`;
-        $("#cv-drop-icon", root).textContent = TYPE_META[s.fileType] ? TYPE_META[s.fileType].icon : "FILE";
         $("#cv-docx-options", root).hidden = true;
         $("#cv-pptx-options", root).hidden = true;
+        $("#cv-html-options", root).hidden = true;
+        $("#cv-pdf-options", root).hidden = true;
         $("#cv-image-options", root).hidden = true;
         renderNotes(NOTE_SECTIONS[s.fileType] ? s.fileType : null);
 
@@ -561,7 +595,6 @@
         $("#cv-before-tokens", root).textContent = s.beforeTokensText;
         $("#cv-after-size", root).textContent = s.afterSizeText;
         $("#cv-after-tokens", root).textContent = s.afterTokensText;
-        $("#cv-token-caveat", root).innerHTML = s.caveat || "";
         $("#cv-breakdown", root).hidden = true;
 
         const limit = 24000;
@@ -570,16 +603,10 @@
           : s.content;
         $("#cv-messages", root).textContent = s.contentTruncated
           ? "Restored from History. The stored Markdown was truncated to fit local storage — reconvert the original file for the full output."
-          : "Restored from History. Add the original file again to reconvert with different options.";
+          : "Restored from History. Add the original file in the Document panel on the left to reconvert with different options.";
         copy.disabled = false;
         download.disabled = false;
       }
-      applyPendingSession = () => {
-        if (!ns.pendingConverterSession) return;
-        const s = ns.pendingConverterSession;
-        ns.pendingConverterSession = null;
-        restoreSession(s);
-      };
 
       async function convertDocx() {
         if (!window.mammoth || !window.TurndownService) {
@@ -609,9 +636,9 @@
         } catch { tokenCountError = true; }
 
         populateResults({
-          beforeLabel: "DOCX (raw XML)",
-          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} estimated XML tokens`,
-          caveat: `Token counts are local estimates using the <code>o200k_base</code> encoding. The DOCX count reflects raw XML across all document parts. Your AI tool may tokenize or process the file differently.`,
+          beforeLabel: "DOCX",
+          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} tokens`,
+          caveat: CAVEATS.docx,
           content, outBytes, beforeTokens, afterTokens, tokenCountError,
         });
 
@@ -670,9 +697,9 @@
         } catch { tokenCountError = true; }
 
         populateResults({
-          beforeLabel: "Website (HTML)",
-          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} estimated HTML tokens`,
-          caveat: `Token counts are local estimates using the <code>o200k_base</code> encoding. The HTML count reflects visible markup with scripts and styles stripped. Your AI tool may tokenize differently.`,
+          beforeLabel: "HTML",
+          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} tokens`,
+          caveat: CAVEATS.html,
           content, outBytes, beforeTokens, afterTokens, tokenCountError,
         });
 
@@ -730,10 +757,9 @@
         if (!imageState) return;
         const model = ns.IMAGE_TOKEN_MODELS.find((m) => m.id === imageModelEl.value) || ns.IMAGE_TOKEN_MODELS[0];
         const beforeTokens = ns.estimateImageTokens(imageState.width, imageState.height, model.id);
-        $("#cv-before-label", root).textContent = `Image tokens (${model.short})`;
         $("#cv-before-tokens", root).textContent =
-          `${number(beforeTokens)} estimated image tokens — ${imageState.width}×${imageState.height} px`;
-        $("#cv-after-tokens", root).textContent = `${number(imageState.afterTokens)} tokens${pctText(beforeTokens, imageState.afterTokens)}`;
+          `${number(beforeTokens)} tokens — ${imageState.width}×${imageState.height} px`;
+        $("#cv-after-tokens", root).innerHTML = `${number(imageState.afterTokens)} tokens${pctSpan(beforeTokens, imageState.afterTokens, "fewer", "more")}`;
       }
 
       async function convertImage() {
@@ -761,9 +787,9 @@
         const beforeTokens = ns.estimateImageTokens(width, height, imageModelEl.value);
 
         populateResults({
-          beforeLabel: "Image tokens",
-          beforeTokensText: `${number(beforeTokens)} estimated image tokens`,
-          caveat: `The &ldquo;before&rdquo; figure uses the selected vision model&rsquo;s <em>published image-token formula</em> based on pixel dimensions &mdash; not the <code>o200k_base</code> text tokenizer used for the Markdown side. The two numbers are different accounting methods; the comparison shows sending the raw screenshot vs. sending the extracted text.`,
+          beforeLabel: "IMG",
+          beforeTokensText: `${number(beforeTokens)} tokens — ${width}×${height} px`,
+          caveat: CAVEATS.image,
           content, outBytes: new Blob([content]).size, beforeTokens, afterTokens, tokenCountError,
         });
         updateImageBaseline();
@@ -835,9 +861,9 @@
         } catch { tokenCountError = true; }
 
         populateResults({
-          beforeLabel: "PPTX (raw XML)",
-          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} estimated XML tokens`,
-          caveat: `Token counts are local estimates using the <code>o200k_base</code> encoding. The PPTX count reflects the raw XML of the parts currently included by the toggles. Your AI tool may tokenize or process the file differently.`,
+          beforeLabel: "PPTX",
+          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} tokens`,
+          caveat: CAVEATS.pptx,
           content, outBytes: new Blob([content]).size, beforeTokens, afterTokens, tokenCountError,
         });
 
@@ -876,21 +902,68 @@
         }
         const content = ns.pdfMarkdown(pages);
         output = { content, mime: "text/markdown", name: `${file.name.replace(/\.pdf$/i, "")}.md` };
+        const outBytes = new Blob([content]).size;
 
-        let beforeTokens = null, afterTokens = null, tokenCountError = false;
+        let textTokens = null, afterTokens = null, plainTokens = null, tokenCountError = false;
         try {
-          [beforeTokens, afterTokens] = await Promise.all([ns.countTokens(rawText), ns.countTokens(content)]);
+          [textTokens, afterTokens, plainTokens] = await Promise.all([
+            ns.countTokens(rawText),
+            ns.countTokens(content),
+            ns.countTokens(ns.plainTextOfMarkdown(content)),
+          ]);
         } catch { tokenCountError = true; }
 
-        populateResults({
-          beforeLabel: "PDF (extracted text)",
-          beforeTokensText: tokenCountError ? "Token estimate unavailable" : `${number(beforeTokens)} estimated text tokens`,
-          caveat: `Token counts are local estimates using the <code>o200k_base</code> encoding. The PDF count reflects the raw extracted text layer — including repeated headers, footers, page numbers, and broken line wraps — which the Markdown conversion cleans up.`,
-          content, outBytes: new Blob([content]).size, beforeTokens, afterTokens, tokenCountError,
-        });
-        $("#cv-breakdown", root).hidden = true;
+        pdfState = tokenCountError ? null : { pages, textTokens, afterTokens, plainTokens, content, outBytes };
+        if (pdfState) {
+          recomputePdf();
+        } else {
+          const caveat = `Token counts are local estimates. The local tokenizer could not load, so no token estimate is shown.`;
+          populateResults({
+            beforeLabel: "PDF",
+            beforeTokensText: "Token estimate unavailable",
+            caveat,
+            content, outBytes, beforeTokens: null, afterTokens: null, tokenCountError,
+          });
+          $("#cv-pdf-caveat", root).innerHTML = caveat;
+          $("#cv-breakdown", root).hidden = true;
+        }
         $("#cv-messages", root).textContent =
           `${pageCount} page${pageCount === 1 ? "" : "s"} extracted. Review the preview — headings, tables, and reading order are best-effort heuristics.`;
+      }
+
+      // Rebuilds the "before" estimate and both breakdown bars from cached
+      // page dimensions/token counts. Called on conversion and whenever the
+      // token-estimate-settings model dropdown changes — no re-extraction
+      // needed since only the image-token half of the estimate depends on it.
+      function recomputePdf() {
+        if (!pdfState) return;
+        const { pages, textTokens, afterTokens, plainTokens, content, outBytes } = pdfState;
+        const model = ns.IMAGE_TOKEN_MODELS.find((m) => m.id === pdfModelEl.value) || ns.IMAGE_TOKEN_MODELS[0];
+        const imageTokens = pages.reduce((sum, p) => sum + ns.estimatePdfPageImageTokens(p.width, p.height, model.id), 0);
+        const beforeTokens = textTokens + imageTokens;
+        const caveat = `Token counts are local estimates. The &ldquo;before&rdquo; figure combines this tool's naive text extraction (<code>o200k_base</code>, ${number(textTokens)} tokens — includes repeated headers, footers, and page numbers) with an estimated image-token cost for <strong>${escapeHtml(model.short)}</strong> (${number(imageTokens)} tokens, from each page's dimensions rendered at an assumed 150 DPI &mdash; providers don&rsquo;t publish the resolution they actually rasterize PDF pages at). The Markdown side is a plain <code>o200k_base</code> text count; it strips repeated headers/footers/page numbers but adds its own structural syntax (headings, lists, tables), so the token count doesn't always go down.`;
+
+        populateResults({
+          beforeLabel: "PDF",
+          beforeTokensText: `${number(beforeTokens)} tokens`,
+          caveat,
+          content, outBytes, beforeTokens, afterTokens, tokenCountError: false,
+        });
+        $("#cv-pdf-caveat", root).innerHTML = caveat;
+
+        const segs1 = [
+          { label: "Extracted text",                    tokens: textTokens, color: "#2563eb" },
+          { label: `Page images (${model.short})`,       tokens: imageTokens, color: "#d97706" },
+        ].filter((s) => s.tokens > 0);
+        $("#cv-bar1-label", root).textContent = "Raw PDF upload (estimated)";
+        ns.renderSegBar($("#cv-bar1", root), segs1, beforeTokens);
+
+        const fmtTokens = Math.max(0, afterTokens - plainTokens);
+        const segs2 = [{ label: "Plain text", tokens: plainTokens, color: "#2563eb" }];
+        if (fmtTokens > 0) segs2.push({ label: "Markdown formatting", tokens: fmtTokens, color: "#d97706" });
+        ns.renderSegBar($("#cv-bar2", root), segs2, afterTokens);
+        $("#cv-bar2-row", root).hidden = false;
+        $("#cv-breakdown", root).hidden = false;
       }
 
       const PIPELINES = {
@@ -915,12 +988,6 @@
         } finally { busy = false; run.disabled = !file; }
       }
 
-      drop.addEventListener("click", () => input.click());
-      drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
-      input.addEventListener("change", () => select(input.files[0]));
-      ["dragenter", "dragover"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("drag-over"); }));
-      ["dragleave", "drop"].forEach((t) => drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("drag-over"); }));
-      drop.addEventListener("drop", (e) => select(e.dataTransfer.files[0]));
       run.addEventListener("click", convert);
       copy.addEventListener("click", () => output && copyWithFeedback(copy, () => output.content));
       download.addEventListener("click", () => output && save(output.content, output.name, output.mime));
@@ -933,6 +1000,8 @@
         try { await recomputePptx(); } catch (err) { console.error(err); } finally { busy = false; }
       });
       imageModelEl.addEventListener("change", updateImageBaseline);
-    },
-  });
+      pdfModelEl.addEventListener("change", () => { if (fileType === "pdf" && pdfState) recomputePdf(); });
+
+      return { setFile, reset, restoreSession };
+  };
 })();

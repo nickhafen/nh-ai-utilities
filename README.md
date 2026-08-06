@@ -4,9 +4,11 @@ Browser-based tools for AI-assisted academic and professional work. No sign-in, 
 
 ## Tools
 
-### Token Saver
+### Document Tools
 
-Convert Word documents and saved web pages to Markdown before sharing with an AI tool. Everything runs locally in the browser — no content leaves your device.
+Add a document once in the persistent document panel — a file (`.docx`, `.pptx`, `.pdf`, `.html`, or a screenshot) or pasted text — then run any workflow against it without re-adding it. The panel tracks the current document across workflow switches, and each workflow lists which inputs it accepts via format chips (e.g. Convert to Markdown accepts every file type; the two link workflows accept `.docx`, `.html`, `.pdf`, `.pptx`, or pasted text — not screenshots).
+
+**Convert to Markdown** — convert Word documents, PowerPoint decks, PDFs, screenshots, and saved web pages to Markdown before sharing with an AI tool. Everything runs locally in the browser — no content leaves your device.
 
 **Supported inputs:**
 - `.docx` — Word documents
@@ -31,8 +33,9 @@ Convert Word documents and saved web pages to Markdown before sharing with an AI
 
 **PDF conversion:**
 - Text extraction with pdfjs-dist (Mozilla PDF.js) — text-layer only, no OCR yet
-- "Before" baseline is the naive per-page text dump (repeated headers/footers, page numbers, and broken line wraps left in), in the same spirit as the DOCX raw-XML baseline
+- "Before" baseline is the naive per-page text dump (repeated headers/footers, page numbers, and broken line wraps left in) — unlike the DOCX/PPTX baselines, this is *not* a stand-in for the raw file an AI platform would actually ingest (many platforms rasterize PDF pages to images or run their own extraction); it only measures this tool's own extracted text before vs. after cleanup
 - Markdown conversion applies best-effort heuristics: headings from font-size deltas, wrapped-line rejoining, bullet/numbered list detection, conservative table reconstruction, and stripping of repeated headers/footers and page numbers
+- On documents with little repeated header/footer chrome to strip, Markdown's own syntax (headings, list markers, table formatting) can outweigh the savings, so the token count can increase rather than decrease
 
 **Screenshot conversion (OCR):**
 - Text recognized locally with tesseract.js; line breaks preserved, bullets/numbers converted to Markdown lists, headings inferred only from OCR line-height hints
@@ -51,21 +54,24 @@ Convert Word documents and saved web pages to Markdown before sharing with an AI
 
 > **Token estimates:** Counting runs locally with an OpenAI-compatible tokenizer (`o200k_base`). Actual token counts and charges depend on the model, platform, and how that platform processes uploaded files.
 
-Conversions are saved to History (Markdown output plus the before/after comparison) and can be restored later. The tool also keeps its state when you navigate to another tool and back within the same visit.
+Conversions are saved to History (Markdown output plus the before/after comparison) and can be restored later. Document Tools keeps its state — including the current document — when you navigate to another tool and back within the same visit.
 
-### Document Tools
+Adding a `.docx`, `.html`, `.pdf`, or `.pptx` file, or pasting text, also extracts its links once and hands the same list to both link workflows below, so switching between them never re-extracts or re-checks from scratch. For PDFs, links come from the file's actual link annotations (not just URLs visible as text) — a link's visible label isn't matched yet, so the URL is shown as its own label, same as a bare-URL paste.
 
-Paste or upload a `.docx` file to extract and analyze all hyperlinks. Each link is checked for reachability and flagged if it contains known AI-platform tracking tags (e.g. `utm_source=chatgpt.com`). Results can be filtered, sorted, and exported as CSV.
+**Extract URLs** — a lightweight list of every link in the document (visible text + destination), with a separator choice (new line, space, tab, or comma) for the "Copy URLs" output, plus CSV export. No network requests — just extraction.
+
+**Check AI Indicators** — the same link list, checked for reachability and flagged if a URL contains a known AI-platform tracking tag (e.g. `utm_source=chatgpt.com`). Results can be filtered, sorted, and exported as CSV.
 
 **Features:**
-- Drag-and-drop `.docx` upload or paste rich text
 - Concurrent reachability checking (6 links at a time)
 - Configurable AI URL tag list
 - Filter by flagged or unreachable, sortable columns
 - Copy URLs or download results as CSV
-- Session history saved locally
+- Session history saved locally (Check AI Indicators sessions only)
 
 > **Note:** The tool detects whether a server responded, not what it said. A 404 page still shows as Reachable. Some links redirected through services like LinkedIn or Google may show as Unreachable — always verify flagged results.
+
+**More workflows may be added later** — the document panel and workflow list are built to support additional document-based tools without requiring the document to be re-added.
 
 ### SKILL Creator
 
@@ -93,9 +99,31 @@ Plan an AI curriculum using the AI-Ready Lawyer framework. Drag competency notes
 
 ### History
 
-Document analyses, Token Saver conversions, saved skill drafts, and curriculum plans are stored in your browser's local storage. Click any card to restore it in its original tool.
+Document analyses, conversions, saved skill drafts, and curriculum plans are stored in your browser's local storage. Click any card to restore it in its original tool.
 
-## Usage
+## Getting Started (No Coding Required)
+
+You don't need a developer background, an account, or an internet connection (after the page first loads) to use these tools. Everything runs locally in your browser.
+
+**1. Download the tools**
+- Go to the project page: [github.com/nickhafen/nh-ai-utilities](https://github.com/nickhafen/nh-ai-utilities)
+- Click the green **Code** button, then **Download ZIP**.
+- Find the downloaded file (usually in your **Downloads** folder) and unzip it:
+  - **Windows:** right-click the ZIP file → **Extract All…**
+  - **Mac:** double-click the ZIP file to unzip it automatically.
+
+**2. Open the app**
+- Open the unzipped folder.
+- Double-click **`index.html`**. It opens in your default web browser (Chrome, Edge, Firefox, or Safari all work).
+- That's it — nothing to install. Bookmark the page or pin the tab so it's easy to find again.
+
+**3. If a tool doesn't seem to work**
+- A few browsers restrict certain features (like loading the rich-text editor) when a page is opened directly from a folder instead of a web address. If you run into this, try the "Serve it locally" option below, or ask someone technical to open the folder with a tool like VS Code's "Live Server" extension.
+
+**4. Getting updates later**
+- Re-download the ZIP and unzip it to get the newest version. Anything saved in **History** lives inside your browser tied to where the page was opened from, so it won't carry over automatically — export anything you want to keep before switching folders.
+
+## Serve it Locally
 
 Open `index.html` in any modern browser — no build step or install required.
 
@@ -112,12 +140,12 @@ All processing runs in your browser. No content is sent to any server. History i
 
 ## Roadmap
 
-### Token Saver
+### Document Tools
 - [ ] Add URL-to-Markdown conversion (URL paste path). Requires a lightweight server-side proxy or third-party CORS proxy to work around browser security restrictions on cross-origin fetches.
 - [x] Add PowerPoint input — slide order, titles, body text, speaker notes, tables, and chart data with include/exclude toggles.
 - [x] Add PDF-to-Markdown conversion — headings, wrapped lines, lists, best-effort tables, header/footer stripping. Scanned pages (OCR fallback) still open.
 - [x] Add screenshot OCR. Confidence indicators and scanned-PDF OCR (rasterize page → shared OCR module) still open.
-- [ ] Add batch conversion and a ZIP download for multiple inputs.
+- [ ] Add batch conversion and a ZIP download for multiple inputs. No server needed — the browser can loop the existing per-file pipelines over a multi-file picker/drop and package the results with the ZIP library (JSZip) already used for SKILL Creator exports. A server would only start to matter for things this app doesn't do today: processing large batches in the background after closing the tab, or handling a total upload size too large for one browser tab's memory.
 - [ ] Add exact tokenizer choices for additional model and provider families.
 - [ ] Add a "semantic budget" preview that highlights content removed by each option before export.
 - [ ] Add presets such as "smallest possible," "preserve academic citations," "preserve tables," and "preserve legal structure."

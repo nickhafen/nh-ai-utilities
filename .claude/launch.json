@@ -4,8 +4,8 @@
     {
       "name": "nh-ai-utilities",
       "runtimeExecutable": "py",
-      "runtimeArgs": ["-m", "http.server", "5174"],
-      "port": 5174
+      "runtimeArgs": ["-m", "http.server", "5175"],
+      "port": 5175
     }
   ]
 }

@@ -1,4 +1,4 @@
-// PDF text extraction for the Token Saver tool, built on pdfjs-dist (Mozilla
+// PDF text extraction for the Document Tools convert workflow, built on pdfjs-dist (Mozilla
 // PDF.js), lazily imported from CDN. Text-layer only: extraction stays a
 // per-page function so a future OCR fallback (rasterize page → ns.ocrImage)
 // can slot in for scanned pages without restructuring.
@@ -68,8 +68,33 @@
       const last = line.items[line.items.length - 1];
       line.xEnd = last.x + last.width;
     }
-    return { lines: lines.filter((l) => l.text), width: page.getViewport({ scale: 1 }).width };
+    const viewport = page.getViewport({ scale: 1 });
+    return { lines: lines.filter((l) => l.text), width: viewport.width, height: viewport.height };
   }
+
+  // Hyperlinks embedded in the PDF as Link annotations (the actual clickable
+  // links — separate from the text layer, since a link's visible label
+  // doesn't need to be the URL itself). Correlating each annotation's
+  // rectangle back to overlapping text for a real visible-text label is not
+  // done here, so visibleText is a placeholder rather than a guess.
+  ns.extractPdfLinks = async function extractPdfLinks(buffer) {
+    const pdfjs = await loadPdfjs();
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const seen = new Set();
+    const links = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const page = await doc.getPage(n);
+      const annotations = await page.getAnnotations();
+      for (const ann of annotations) {
+        if (ann.subtype !== "Link" || !ann.url) continue;
+        const clean = ns.cleanUrl(ann.url);
+        if (!clean || seen.has(clean)) continue;
+        seen.add(clean);
+        links.push({ visibleText: "[Feature unavailable for PDFs]", url: clean });
+      }
+    }
+    return links;
+  };
 
   // Whole document. rawText is the intentionally naive "before" baseline:
   // per-page lines joined with newlines, pages separated by a blank line, with

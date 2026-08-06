@@ -16,6 +16,22 @@
     return tokenizer.encode(String(text || "")).length;
   };
 
+  // -- File-type detection --
+
+  // Sniffs a File's extension and returns one of the Document Tools workflow
+  // format ids ("docx" | "pptx" | "pdf" | "html" | "image"), or null if
+  // unrecognized. Shared between the document rail (file intake) and any
+  // workflow that needs to know what it was just handed.
+  ns.detectDocumentFileType = function detectDocumentFileType(file) {
+    const lower = (file?.name || "").toLowerCase();
+    if (lower.endsWith(".docx")) return "docx";
+    if (lower.endsWith(".pptx")) return "pptx";
+    if (lower.endsWith(".pdf")) return "pdf";
+    if (lower.endsWith(".html") || lower.endsWith(".htm")) return "html";
+    if (/\.(png|jpe?g|webp)$/.test(lower)) return "image";
+    return null;
+  };
+
   // -- Plain-text extraction --
 
   // Returns plain text from an HTML string for token-count comparison.

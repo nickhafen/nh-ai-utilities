@@ -77,4 +77,19 @@
       default: throw new Error(`Unknown image-token model: ${model}`);
     }
   };
+
+  // Rendering resolution assumed when a provider rasterizes a PDF page before
+  // applying its image-token formula. Neither Anthropic nor OpenAI publishes
+  // the DPI their PDF ingestion pipeline actually uses — 150 DPI (a common
+  // default for text-legible PDF-to-image rendering) is a disclosed
+  // approximation, not a verified constant.
+  const PDF_RENDER_DPI = 150;
+
+  // Estimates one PDF page's image-token cost for the given model, from the
+  // page's native point dimensions (1pt = 1/72in, what pdf.js reports at
+  // viewport scale 1). Reuses the same per-model formula as estimateImageTokens.
+  ns.estimatePdfPageImageTokens = function estimatePdfPageImageTokens(widthPts, heightPts, model) {
+    const scale = PDF_RENDER_DPI / 72;
+    return ns.estimateImageTokens(widthPts * scale, heightPts * scale, model);
+  };
 })();

@@ -78,7 +78,7 @@
             ${historyNoticeHtml()}
             <div class="history-empty">
               <p>No history yet.</p>
-              <p class="hint" style="margin-top:0.5rem">Analyze a document, convert a file with Token Saver, save a skill, or save a curriculum plan to get started.</p>
+              <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, save a skill, or save a curriculum plan to get started.</p>
             </div>
           </div>
         `;
@@ -114,7 +114,7 @@
                 ${historyNoticeHtml()}
                 <div class="history-empty">
                   <p>No history yet.</p>
-                  <p class="hint" style="margin-top:0.5rem">Analyze a document, convert a file with Token Saver, save a skill, or save a curriculum plan to get started.</p>
+                  <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, save a skill, or save a curriculum plan to get started.</p>
                 </div>
               </div>
             `;
@@ -128,7 +128,7 @@
           if (session) {
             if (session.inputType === "conversion") {
               ns.pendingConverterSession = session;
-              window.location.hash = "document-converter";
+              window.location.hash = "document-tools";
             } else if (session.inputType === "skill") {
               ns.pendingSkillSession = session;
               window.location.hash = "skill-creator";
@@ -137,7 +137,7 @@
               window.location.hash = "curriculum-planner";
             } else {
               ns.pendingSession = session;
-              window.location.hash = "analyzer";
+              window.location.hash = "document-tools";
             }
           }
         }
@@ -151,7 +151,7 @@
             ${historyNoticeHtml()}
             <div class="history-empty">
               <p>No history yet.</p>
-              <p class="hint" style="margin-top:0.5rem">Analyze a document, convert a file with Token Saver, save a skill, or save a curriculum plan to get started.</p>
+              <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, save a skill, or save a curriculum plan to get started.</p>
             </div>
           </div>
         `;

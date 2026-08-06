@@ -1,4 +1,4 @@
-// PPTX parsing for the Token Saver tool. Same architectural pattern as the
+// PPTX parsing for the Document Tools convert workflow. Same architectural pattern as the
 // DOCX pipeline: the .pptx is an OOXML zip whose XML parts are read with JSZip,
 // token-counted raw for the "before" baseline, and parsed for Markdown output.
 (function () {
@@ -221,6 +221,46 @@
       ? await zip.files["ppt/presentation.xml"].async("string") : "";
 
     return { slides, layouts, masters, themes, presentationXml };
+  };
+
+  // Hyperlinks in a .pptx, mirroring ns.extractDocxLinks (js/shared/docx.js) —
+  // PPTX is OOXML too, same zip/_rels convention, just DrawingML tags
+  // (a:hlinkClick / a:t) instead of WordprocessingML (w:hyperlink / w:t).
+  ns.extractPptxLinks = async function extractPptxLinks(zip) {
+    const seen = new Set();
+    const links = [];
+    function add(visibleText, url) {
+      const clean = ns.cleanUrl(url);
+      if (!clean || clean.startsWith("#") || seen.has(clean)) return;
+      seen.add(clean);
+      links.push({ visibleText: (visibleText || clean).trim(), url: clean });
+    }
+
+    const slidePaths = Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/i.test(n)).sort();
+
+    for (const path of slidePaths) {
+      const [xml, rels] = await Promise.all([zip.files[path].async("string"), readRels(zip, path)]);
+      const doc = parseXml(xml);
+      if (!doc) continue;
+
+      // Pass 1: structured hyperlink runs — <a:r><a:rPr><a:hlinkClick r:id="…"/></a:rPr><a:t>label</a:t></a:r>
+      for (const run of byLocal(doc, "r")) {
+        const rPr = byLocal(run, "rPr")[0];
+        const hlink = rPr && byLocal(rPr, "hlinkClick")[0];
+        if (!hlink) continue;
+        const rId = hlink.getAttributeNS(RELNS, "id") || hlink.getAttribute("r:id");
+        const rel = rId && rels[rId];
+        if (!rel || !/\/hyperlink$/i.test(rel.type)) continue;
+        add(byLocal(run, "t").map((t) => t.textContent).join(""), rel.target);
+      }
+
+      // Pass 2: plain-text URLs anywhere in the slide's visible text
+      for (const t of byLocal(doc, "t")) {
+        for (const url of ns.extractUrls(t.textContent)) add(url, url);
+      }
+    }
+
+    return links;
   };
 
   // Deduplicated visible text from slide layouts and masters (mostly template
