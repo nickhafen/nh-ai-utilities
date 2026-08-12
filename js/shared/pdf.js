@@ -157,6 +157,35 @@
     return `- ${m[2]}`;
   }
 
+  // Headings that read as headings from their text alone, independent of
+  // font size — needed for documents (common in contracts) that style
+  // section titles with bold/caps/numbering rather than a larger point size.
+  const NUMBERED_HEADING_RE = /^[0-9]+(?:\.[0-9]+)*[A-Za-z]?\.?\s+[A-Z].{0,80}$/;
+  const ALLCAPS_HEADING_RE = /^[A-Z][A-Z\s&"'-]{4,60}$/;
+  const BARE_NUMBERING_RE = /^[0-9]{1,3}[A-Za-z]?\.?$/;
+  const MINOR_WORDS = new Set(["of", "and", "the", "for", "to", "in", "a", "an", "or", "&"]);
+
+  // Short Title Case line that isn't numbered/ALL-CAPS (e.g. "Exhibit A —
+  // Statement of Work"): most words are capitalized, any lowercase ones are
+  // minor connectors, and it doesn't end like a sentence.
+  function looksLikeTitleCaseHeading(text) {
+    if (text.length >= 70 || /[.!?,]$/.test(text)) return false;
+    const words = text.split(/\s+/);
+    if (words.length < 2 || words.length > 9) return false;
+    let capCount = 0;
+    for (const w of words) {
+      const bare = w.replace(/[^A-Za-z]/g, "");
+      if (!bare) continue;
+      if (/^[A-Z]/.test(bare)) capCount++;
+      else if (!MINOR_WORDS.has(w.toLowerCase())) return false;
+    }
+    return capCount >= Math.ceil(words.length * 0.5);
+  }
+
+  function isPatternHeading(text) {
+    return ALLCAPS_HEADING_RE.test(text) || looksLikeTitleCaseHeading(text);
+  }
+
   // Split a line's items into table cells on large horizontal gaps.
   function cellsOf(line) {
     const cells = [];
@@ -193,16 +222,31 @@
     return { rows: rows.map((r) => r.map((c) => c.text)), end };
   }
 
-  function headingLevel(line, bodySize, sizesUniform, nextLine) {
+  function headingLevel(line, bodySize, sizesUniform, nextLine, continuingList) {
     const text = line.text;
-    if (text.length > 120 || LIST_RE.test(text)) return 0;
+    if (text.length > 120) return 0;
+
+    // A bullet/lettered marker line is always a list item. A numbered marker
+    // ("1. Indemnification") is ambiguous with an ordered-list item of the
+    // same shape, so it only counts as a heading when it's isolated: not
+    // continuing a list already in progress, and not immediately followed by
+    // another marker line (which would mean it's the start of a real list).
+    const isNumberedMarker = LIST_RE.test(text) && NUMBERED_HEADING_RE.test(text);
+    if (LIST_RE.test(text) && !isNumberedMarker) return 0;
+    const numberedQualifies = isNumberedMarker &&
+      !continuingList && !(nextLine && listItem(nextLine.text));
+    if (isNumberedMarker && !numberedQualifies) return 0;
+
+    const patternMatch = isPatternHeading(text) || numberedQualifies;
     if (!sizesUniform && bodySize) {
       const ratio = line.fontSize / bodySize;
       if (ratio >= 1.7) return 1;
       if (ratio >= 1.35) return 2;
       if (ratio >= 1.15 && !/[.,;:]$/.test(text)) return 3;
+      if (ratio >= 0.95 && patternMatch) return 3;
       return 0;
     }
+    if (patternMatch) return 3;
     // Fallback when font info is unreliable: a short standalone line followed
     // by paragraph-length text.
     if (text.length <= 60 && !/[.!?,;:]$/.test(text) && nextLine && nextLine.text.length > 60) return 2;
@@ -277,6 +321,35 @@
         const line = lines[i];
         // Orphan bullet glyphs (a marker whose text ended up on another line).
         if (/^[•●○◦▪‣∙·]+$/.test(line.text.trim())) { i++; continue; }
+
+        // A standalone section number ("7A.") followed by its title on the
+        // next line (the number rendered as a separate text run): test the
+        // combined text as one heading candidate.
+        if (i + 1 < lines.length && !lastBlockIsList() && BARE_NUMBERING_RE.test(line.text.trim())) {
+          const next = lines[i + 1];
+          const sep = line.text.trim().endsWith(".") ? " " : ". ";
+          const combined = { text: `${line.text.trim()}${sep}${next.text}`, fontSize: Math.max(line.fontSize, next.fontSize) };
+          const combinedLevel = headingLevel(combined, bodySize, sizesUniform, lines[i + 2], false);
+          if (combinedLevel) {
+            flushPara(); lastItem = null;
+            blocks.push(`${"#".repeat(combinedLevel)} ${combined.text}`);
+            i += 2;
+            continue;
+          }
+        }
+
+        // Heading detection runs before list-item detection so an isolated
+        // numbered section title ("1. Indemnification") isn't swallowed into
+        // an ordered list; headingLevel still defers ordinary numbered list
+        // items back to the list-item path below.
+        const level = headingLevel(line, bodySize, sizesUniform, lines[i + 1], lastBlockIsList());
+        if (level) {
+          flushPara(); lastItem = null;
+          blocks.push(`${"#".repeat(level)} ${line.text}`);
+          i++;
+          continue;
+        }
+
         const item = listItem(line.text);
         if (item) {
           emitItem(line, item);
@@ -293,13 +366,6 @@
             ? last.slice(0, -1) + line.text
             : `${last} ${line.text}`;
           lastItem.xEnd = line.xEnd;
-          i++;
-          continue;
-        }
-        const level = headingLevel(line, bodySize, sizesUniform, lines[i + 1]);
-        if (level) {
-          flushPara(); lastItem = null;
-          blocks.push(`${"#".repeat(level)} ${line.text}`);
           i++;
           continue;
         }
