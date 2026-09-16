@@ -147,10 +147,10 @@ The app has no server, but it does load some libraries from public CDNs. If a CD
 
   | Library | Source | Checked |
   |---|---|---|
-  | JSZip 3.10.1 | cdnjs.cloudflare.com | SRI hash |
-  | Mammoth 1.12.0 | unpkg.com | SRI hash |
-  | Turndown 7.2.1 | unpkg.com | SRI hash |
-  | @mozilla/readability 0.5.0 | unpkg.com | SRI hash |
+  | JSZip 3.10.2 | cdnjs.cloudflare.com | SRI hash |
+  | Mammoth 1.12.3 | unpkg.com | SRI hash |
+  | Turndown 7.2.4 | unpkg.com | SRI hash |
+  | @mozilla/readability 0.6.0 | unpkg.com | SRI hash |
   | Toast UI Editor 3.2.2 (JS + CSS) | this repo, `vendor/toastui/3.2.2/` | Served with the app (its CDN doesn't allow integrity checks) |
 
 - **Content Security Policy.** A CSP in `index.html` only allows scripts from this site and the CDNs above, and blocks plugins, `<base>` changes and form submissions.
