@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Script fingerprint</title>
+  <link rel="stylesheet" href="tests.css">
+  <script defer src="../js/shared/dom.js"></script>
+  <script defer src="../js/shared/batch-download-script.js"></script>
+  <script defer src="harness.js"></script>
+  <script defer src="script-hash.test.js"></script>
+</head>
+<body>
+  <h1>Batch Download script fingerprint</h1>
+  <p>Dev-only page. It computes the SHA-256 of the exact <code>download-files.ps1</code> bytes that go into a bundle, and checks the format rules from <code>js/shared/batch-download-script.js</code>.</p>
+  <p>Whenever the script changes, copy the value below into <code>README.md</code> under <strong>Script fingerprint</strong>.</p>
+  <p><strong>SHA-256:</strong></p>
+  <pre id="hash">computing…</pre>
+  <p id="summary" class="summary">Running…</p>
+  <ol id="results"></ol>
+</body>
+</html>
