@@ -138,6 +138,33 @@ python3 -m http.server 5173
 
 All processing runs in your browser. No content is sent to any server. History is stored in `localStorage` on this device only and is not synced across devices or browsers.
 
+## Security & third-party code
+
+The app has no server, but it does load some libraries from public CDNs. If a CDN were compromised, it could change the code running in your tab. These measures limit that risk:
+
+- **Pinned versions.** Every library is loaded at a fixed version, never `latest`.
+- **Integrity checks (SRI).** The libraries loaded by `<script>` tags in `index.html` carry an `integrity` hash, so the browser refuses a file that doesn't match exactly:
+
+  | Library | Source | Checked |
+  |---|---|---|
+  | JSZip 3.10.1 | cdnjs.cloudflare.com | SRI hash |
+  | Mammoth 1.12.0 | unpkg.com | SRI hash |
+  | Turndown 7.2.1 | unpkg.com | SRI hash |
+  | @mozilla/readability 0.5.0 | unpkg.com | SRI hash |
+  | Toast UI Editor 3.2.2 (JS + CSS) | this repo, `vendor/toastui/3.2.2/` | Served with the app (its CDN doesn't allow integrity checks) |
+
+- **Content Security Policy.** A CSP in `index.html` only allows scripts from this site and the CDNs above, and blocks plugins, `<base>` changes and form submissions.
+
+**Accepted risk: code loaded at runtime isn't integrity-checked.** A few libraries are loaded on demand by JavaScript, where browsers can't apply SRI:
+
+| Library | Source | Used by |
+|---|---|---|
+| js-tiktoken 1.0.21 (tokenizer) | esm.sh | Token counts in Convert to Markdown |
+| pdf.js 4.6.82 + its worker | cdnjs.cloudflare.com | PDF conversion and PDF link extraction |
+| tesseract.js 5.1.1 + its workers, WebAssembly core and English language data | cdn.jsdelivr.net (and the data hosts tesseract uses) | Screenshot OCR |
+
+These are pinned to fixed versions and limited by the CSP, but a compromised copy on those CDNs would not be detected. This risk is accepted because these libraries have no practical integrity-checked alternative without adding a build step, and they only run when you use the feature that needs them. To avoid them entirely, don't convert PDFs or screenshots, and ignore token counts.
+
 ## Roadmap
 
 ### Document Tools
@@ -166,5 +193,5 @@ All processing runs in your browser. No content is sent to any server. History i
 - [js-tiktoken](https://www.npmjs.com/package/js-tiktoken) — private, local token estimation using the `o200k_base` encoding (CDN)
 - [pdfjs-dist](https://mozilla.github.io/pdf.js/) — client-side PDF text extraction (CDN, lazy-loaded)
 - [tesseract.js](https://tesseract.projectnaptha.com/) — local in-browser OCR for screenshots (CDN, lazy-loaded)
-- [Toast UI Editor](https://ui.toast.com/tui-editor) — rich-text and markdown editing (CDN)
+- [Toast UI Editor](https://ui.toast.com/tui-editor) — rich-text and markdown editing (vendored in `vendor/toastui/`, MIT license)
 - [JSZip](https://strtd.github.io/jszip/) — `.docx` parsing and ZIP export (CDN)
