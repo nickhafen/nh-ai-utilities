@@ -1,9 +1,10 @@
-// Document Tools: the persistent-rail shell that hosts three workflows —
-// Convert to Markdown (js/tools/document-converter.js), Extract URLs, and
-// Check AI Indicators (both js/tools/analyzer.js) — under one document. The
-// rail owns document intake (a file OR pasted text) and, for the two
-// link-based workflows, extracts links once and hands the same list to both,
-// so switching workflows never requires re-uploading or re-pasting.
+// Document Tools: the persistent-rail shell that hosts four workflows —
+// Convert to Markdown (js/tools/document-converter.js), Extract URLs and
+// Check AI Indicators (both js/tools/analyzer.js), and Batch Download
+// (js/tools/batch-download.js) — under one document. The rail owns document
+// intake (a file OR pasted text) and, for the link-based workflows, extracts
+// links once and hands the same list to each, so switching workflows never
+// requires re-uploading or re-pasting.
 (function () {
   const ns = window.AiUtilities = window.AiUtilities || {};
   const { $, $$, escapeHtml } = ns;
@@ -25,6 +26,12 @@
       id: "ai-indicators",
       label: "Check Links for  AI Indicators",
       sub: "AI tags & unreachable links",
+      formats: ["docx", "html", "pdf", "pptx", "paste"],
+    },
+    {
+      id: "batch-download",
+      label: "Batch Download",
+      sub: "Review names, get a download script",
       formats: ["docx", "html", "pdf", "pptx", "paste"],
     },
   ];
@@ -68,11 +75,15 @@
     const tag = node.tagName.toLowerCase();
     if (tag === "br") { frag.appendChild(document.createTextNode("\n")); return; }
     if (tag === "a") {
-      const href = ns.cleanUrl(node.getAttribute("href") || "");
+      const rawHref = node.getAttribute("href") || "";
+      // Relative hrefs are kept (as text in the attribute) so Batch Download
+      // can resolve them against a Base URL; they have no scheme, so they
+      // can't be javascript: or similar.
+      const href = ns.cleanUrl(rawHref) || (ns.isRelativeHref(rawHref) ? rawHref.trim() : "");
       const label = node.textContent || href;
       if (href) {
         const a = document.createElement("a");
-        a.href = href; a.textContent = label; a.tabIndex = -1;
+        a.setAttribute("href", href); a.textContent = label; a.tabIndex = -1;
         frag.appendChild(a);
       } else {
         frag.appendChild(document.createTextNode(label));
@@ -115,25 +126,54 @@
   // Extracts a deduped, cleaned link list from pasted content. When HTML is
   // available (rich-text paste), anchor hrefs and anchor text are used;
   // bare URLs found in the text (HTML or plain) are also picked up.
+  // Relative anchors ("2024/report.pdf") come back with url: "" and their
+  // rawHref; distributeLinks() only hands them to Batch Download.
   function extractFromPaste(html, plain) {
     const seen = new Set();
+    const seenRelative = new Set();
     const links = [];
-    function add(visibleText, url) {
+    function add(visibleText, url, rawHref) {
       const clean = ns.cleanUrl(url);
       if (!clean || clean.startsWith("#") || seen.has(clean)) return;
       seen.add(clean);
-      links.push({ visibleText: (visibleText || clean).trim(), url: clean });
+      links.push({ visibleText: (visibleText || clean).trim(), url: clean, rawHref: rawHref || url });
     }
     if (html) {
       const doc = new DOMParser().parseFromString(html, "text/html");
       doc.querySelectorAll("a[href]").forEach((a) => {
-        const href = ns.cleanUrl(a.getAttribute("href") || "");
-        if (href) add(a.textContent, href);
+        const raw = a.getAttribute("href") || "";
+        const href = ns.cleanUrl(raw);
+        if (href) {
+          add(a.textContent, href, raw.trim());
+        } else if (ns.isRelativeHref(raw)) {
+          const rel = raw.trim();
+          if (seenRelative.has(rel)) return;
+          seenRelative.add(rel);
+          links.push({ visibleText: (a.textContent || "").trim(), url: "", rawHref: rel });
+        }
       });
       for (const u of ns.extractUrls(doc.body.textContent || "")) add(u, u);
     }
     for (const u of ns.extractUrls(plain || "")) add(u, u);
     return links;
+  }
+
+  // The address a saved web page came from, for resolving its relative links:
+  // <base href>, Chrome/Edge's "saved from url" comment, then canonical/og:url.
+  function detectBaseUrl(html) {
+    const text = String(html || "");
+    const saved = (text.match(/<!--\s*saved from url=\(\d+\)\s*(\S+?)\s*-->/i) || [])[1] || "";
+    let doc;
+    try { doc = new DOMParser().parseFromString(text, "text/html"); } catch { return ns.cleanUrl(saved); }
+    const pick = (sel, attr) => (doc.querySelector(sel)?.getAttribute(attr) || "").trim();
+    const baseHref = pick("base[href]", "href");
+    const fromPage = ns.cleanUrl(saved) || ns.cleanUrl(pick('link[rel~="canonical"][href]', "href")) ||
+      ns.cleanUrl(pick('meta[property="og:url"][content]', "content"));
+    if (baseHref) {
+      const resolved = ns.resolveUrl(baseHref, fromPage);
+      if (resolved) return resolved;
+    }
+    return fromPage;
   }
 
   function extractFromEditor(editor) {
@@ -260,6 +300,7 @@
               <div data-doctools-view="convert" class="doctools-workflow-mount"></div>
               <div data-doctools-view="extract-urls" class="doctools-workflow-mount"></div>
               <div data-doctools-view="ai-indicators" class="doctools-workflow-mount"></div>
+              <div data-doctools-view="batch-download" class="doctools-workflow-mount"></div>
             </div>
           </div>
         </section>`;
@@ -277,6 +318,7 @@
       const convertApi    = ns.mountConvertWorkflow($('[data-doctools-view="convert"]', root));
       const extractApi    = ns.mountExtractUrlsWorkflow($('[data-doctools-view="extract-urls"]', root));
       const indicatorsApi = ns.mountAiIndicatorsWorkflow($('[data-doctools-view="ai-indicators"]', root));
+      const batchApi      = ns.mountBatchDownloadWorkflow($('[data-doctools-view="batch-download"]', root));
 
       function workflowButton(id) {
         return $(`[data-workflow="${id}"]`, root);
@@ -339,9 +381,13 @@
         autoSelectWorkflow();
       }
 
-      function distributeLinks(links, label) {
-        extractApi.setLinks(links, label);
-        indicatorsApi.setLinks(links, label);
+      // Relative links (url: "") only go to Batch Download, which can resolve
+      // them against a Base URL; the other workflows get absolute links only.
+      function distributeLinks(links, label, { baseUrl = "", error = "" } = {}) {
+        const absolute = links.filter((l) => l.url);
+        extractApi.setLinks(absolute, label);
+        indicatorsApi.setLinks(absolute, label);
+        batchApi.setLinks(links, label, { baseUrl, error });
       }
 
       function setActiveDocDisplay(icon, name, meta) {
@@ -376,16 +422,16 @@
               distributeLinks(links, file.name);
             } catch {
               railFail("Could not read the file for link extraction. Make sure it is a valid .docx.");
-              distributeLinks([], file.name);
+              distributeLinks([], file.name, { error: railError.textContent });
             }
           }
         } else if (type === "html") {
           try {
             const text = await file.text();
-            distributeLinks(extractFromPaste(text, ""), file.name);
+            distributeLinks(extractFromPaste(text, ""), file.name, { baseUrl: detectBaseUrl(text) });
           } catch {
             railFail("Could not read the file for link extraction. Make sure it is a valid HTML file.");
-            distributeLinks([], file.name);
+            distributeLinks([], file.name, { error: railError.textContent });
           }
         } else if (type === "pdf") {
           try {
@@ -393,7 +439,7 @@
             distributeLinks(links, file.name);
           } catch {
             railFail("Could not read the file for link extraction. Make sure it is a valid PDF.");
-            distributeLinks([], file.name);
+            distributeLinks([], file.name, { error: railError.textContent });
           }
         } else if (type === "pptx") {
           if (!window.JSZip) {
@@ -405,12 +451,13 @@
               distributeLinks(links, file.name);
             } catch {
               railFail("Could not read the file for link extraction. Make sure it is a valid .pptx.");
-              distributeLinks([], file.name);
+              distributeLinks([], file.name, { error: railError.textContent });
             }
           }
         } else {
           extractApi.reset();
           indicatorsApi.reset();
+          batchApi.reset();
         }
 
         updateWorkflowAvailability();
@@ -443,6 +490,7 @@
         convertApi.reset();
         extractApi.reset();
         indicatorsApi.reset();
+        batchApi.reset();
         updateWorkflowAvailability();
         showPlaceholder();
       }
@@ -526,6 +574,24 @@
           ns.pendingConverterSession = null;
           selectWorkflow("convert");
           convertApi.restoreSession(s);
+        } else if (ns.pendingBatchSession) {
+          const s = ns.pendingBatchSession;
+          ns.pendingBatchSession = null;
+          const label = batchApi.restoreSession(s);
+          if (label !== null) {
+            // The original document isn't stored, so the rail shows the
+            // restored list as its "document"; paste-type keeps the link
+            // workflows enabled and Convert disabled.
+            file = null; fileType = "paste";
+            fileInput.value = "";
+            railFail("");
+            setActiveDocDisplay("LIST", `Restored from History: ${label}`, `${s.rows.length} link${s.rows.length === 1 ? "" : "s"}`);
+            extractApi.reset();
+            indicatorsApi.reset();
+            convertApi.reset();
+            updateWorkflowAvailability();
+          }
+          selectWorkflow("batch-download");
         } else if (ns.pendingSession) {
           const s = ns.pendingSession;
           ns.pendingSession = null;
