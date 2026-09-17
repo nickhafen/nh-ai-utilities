@@ -5,7 +5,7 @@
 (function () {
   const ns = window.AiUtilities = window.AiUtilities || {};
 
-  const PDFJS_VERSION = "4.6.82";
+  const PDFJS_VERSION = "6.3.289";
   let _pdfjsPromise;
   function loadPdfjs() {
     if (!_pdfjsPromise) {

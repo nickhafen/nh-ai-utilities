@@ -72,6 +72,11 @@ button {
   color: var(--muted-strong);
 }
 
+.app-footer a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 /* -- Sidebar -- */
 
 .sidebar {

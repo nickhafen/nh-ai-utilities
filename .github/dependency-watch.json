@@ -1,0 +1,7 @@
+{
+  "ignoreDirs": ["vendor"],
+  "manual": [
+    { "npm": "pdfjs-dist", "version": "6.3.289", "file": "js/shared/pdf.js", "note": "PDFJS_VERSION constant, loaded from cdnjs" },
+    { "npm": "@toast-ui/editor", "version": "3.2.2", "file": "index.html", "note": "vendored in vendor/toastui/" }
+  ]
+}

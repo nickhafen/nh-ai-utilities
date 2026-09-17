@@ -6,13 +6,19 @@
 (function () {
   const ns = window.AiUtilities = window.AiUtilities || {};
 
+  // The engine (core) and English language data are pinned explicitly;
+  // tesseract.js would otherwise pick the language data's latest version.
+  // Keep CORE_PATH's major version in step with tesseract.js.
+  const CORE_PATH = "https://cdn.jsdelivr.net/npm/tesseract.js-core@7.0.0";
+  const LANG_PATH = "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int";
+
   let _tesseractPromise;
   function loadTesseract() {
     if (!_tesseractPromise) {
       _tesseractPromise = new Promise((resolve, reject) => {
         if (window.Tesseract) return resolve(window.Tesseract);
         const script = document.createElement("script");
-        script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+        script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@7.0.0/dist/tesseract.min.js";
         script.onload = () => resolve(window.Tesseract);
         script.onerror = () => reject(new Error("Failed to load the OCR library (tesseract.js) from CDN."));
         document.head.appendChild(script);
@@ -25,12 +31,22 @@
   // size proxy used for heading heuristics). onProgress receives 0..1.
   ns.ocrImage = async function ocrImage(imageSource, onProgress) {
     const Tesseract = await loadTesseract();
-    const { data } = await Tesseract.recognize(imageSource, "eng", {
+    const worker = await Tesseract.createWorker("eng", Tesseract.OEM.LSTM_ONLY, {
+      corePath: CORE_PATH,
+      langPath: LANG_PATH,
       logger: (m) => {
         if (onProgress && m.status === "recognizing text") onProgress(m.progress || 0);
       },
     });
-    const lines = (data.lines || []).map((line) => ({
+    let data;
+    try {
+      // Since tesseract.js v6, line geometry is only returned via `blocks`.
+      ({ data } = await worker.recognize(imageSource, {}, { text: true, blocks: true }));
+    } finally {
+      await worker.terminate();
+    }
+    const allLines = (data.blocks || []).flatMap((b) => (b.paragraphs || []).flatMap((p) => p.lines || []));
+    const lines = allLines.map((line) => ({
       text: (line.text || "").replace(/\s+$/, ""),
       height: line.bbox ? line.bbox.y1 - line.bbox.y0 : 0,
       confidence: line.confidence,

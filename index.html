@@ -3,15 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!--
+    Content Security Policy. Third-party code is limited to the CDNs below.
+    Pinned <script> tags carry SRI hashes; the code loaded at runtime
+    (esm.sh tokenizer, pdf.js + worker, tesseract + workers/language data)
+    can't, which is an accepted risk documented in README.md
+    ("Security & third-party code").
+    - 'wasm-unsafe-eval': tesseract compiles WebAssembly.
+    - worker-src blob:: pdf.js and tesseract start workers from blob URLs.
+    - connect-src https: http:: Check AI Indicators probes arbitrary links;
+      tesseract fetches its core and language data.
+    - Tested served over HTTP and opened straight from disk (Chrome/Edge treat
+      'self' as covering file: pages, so no file: source is needed).
+  -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://unpkg.com https://esm.sh https://cdn.jsdelivr.net 'wasm-unsafe-eval'; worker-src 'self' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' data: blob: https: http:; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>AI Utilities</title>
   <link rel="icon" type="image/png" href="tools-favicon.png">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
-  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script defer src="https://unpkg.com/mammoth@1.12.0/mammoth.browser.min.js"></script>
-  <script defer src="https://unpkg.com/turndown@7.2.1/dist/turndown.js"></script>
-  <script defer src="https://unpkg.com/@mozilla/readability@0.5.0/Readability.js"></script>
-  <script defer src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+  <!-- Toast UI Editor 3.2.2 is vendored: its CDN (uicdn.toast.com) sends no CORS header, so SRI can't be used there. -->
+  <link rel="stylesheet" href="vendor/toastui/3.2.2/toastui-editor.min.css">
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.2/jszip.min.js" integrity="sha384-DdGlNq+wVXAn83gXqwyeFHB7iyXy6L0rLrNzgDmhKWPjiJLg9vj6qosYmZmkMfQ+" crossorigin="anonymous"></script>
+  <script defer src="https://unpkg.com/mammoth@1.12.3/mammoth.browser.min.js" integrity="sha384-xqNXvcKbEqifokHcBnB0H32p+OQchhD/T/xJGWCMAW5fC0c0MBf9atO3weoPCT84" crossorigin="anonymous"></script>
+  <script defer src="https://unpkg.com/turndown@7.2.4/dist/turndown.js" integrity="sha384-VRHmZZ8b5mH5yknWcg48OJS6RmXZmlgvsqhOXJqY0rwvwirs1M12xd+49c3NpW6a" crossorigin="anonymous"></script>
+  <script defer src="https://unpkg.com/@mozilla/readability@0.6.0/Readability.js" integrity="sha384-e+TY0H9ZOYdOLMJKCM3iXGmTbjVVh+PJ+GTEKuGjQY0+bsSOJohq+GWUAmhGjKOi" crossorigin="anonymous"></script>
+  <script defer src="vendor/toastui/3.2.2/toastui-editor-all.min.js"></script>
   <script defer src="js/shared/dom.js"></script>
   <script defer src="js/shared/clipboard.js"></script>
   <script defer src="js/shared/urls.js"></script>
@@ -41,6 +56,8 @@
   <footer class="app-footer">
     <strong>Privacy:</strong> Nothing is uploaded to the internet &mdash; all processing runs in your browser.
     History is stored in this browser's local storage on this device only and is not synced.
+    Some libraries load from public CDNs &mdash; see
+    <a href="https://github.com/nickhafen/nh-ai-utilities#security--third-party-code" target="_blank" rel="noopener noreferrer">Security &amp; third-party code</a>.
   </footer>
 </body>
 </html>
