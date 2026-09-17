@@ -1,0 +1,28 @@
+# Dependabot covers anything with a standard manifest. This repo has none
+# (CDN/vendored JS is handled by .github/workflows/dependency-watch.yml), so
+# it only keeps the GitHub Actions used by our workflows up to date.
+#
+# For other apps, uncomment the ecosystems they use.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  # - package-ecosystem: "npm"        # package.json / package-lock.json
+  #   directory: "/"
+  #   schedule: { interval: "weekly" }
+  #   groups:
+  #     minor-and-patch: { update-types: ["minor", "patch"] }
+
+  # - package-ecosystem: "pip"        # requirements.txt / pyproject.toml
+  #   directory: "/"
+  #   schedule: { interval: "weekly" }
+
+  # - package-ecosystem: "docker"     # Dockerfile base images
+  #   directory: "/"
+  #   schedule: { interval: "monthly" }

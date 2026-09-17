@@ -1,0 +1,68 @@
+# Weekly check of pinned third-party code. Opens (or updates) a single GitHub
+# issue when something is vulnerable or outdated, and closes it once everything
+# is current. GitHub emails you on new issues/comments, so no need to remember.
+name: Dependency watch
+
+on:
+  schedule:
+    - cron: "17 14 * * 1" # Mondays 14:17 UTC
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - ".github/dependency-watch.json"
+      - ".github/scripts/dependency-watch.mjs"
+      - ".github/workflows/dependency-watch.yml"
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: dependency-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Scan dependencies
+        id: scan
+        run: node .github/scripts/dependency-watch.mjs --out report.md
+
+      - name: Open, update, or close tracking issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATUS: ${{ steps.scan.outputs.status }}
+          TITLE: "Dependency watch: third-party updates available"
+        run: |
+          gh label create dependencies --color 0366d6 --description "Third-party code updates" 2>/dev/null || true
+          gh label create security --color d73a4a --description "Security advisory" 2>/dev/null || true
+
+          existing=$(gh issue list --state open --label dependencies --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+
+          if [ "$STATUS" = "ok" ]; then
+            if [ -n "$existing" ]; then
+              gh issue close "$existing" --comment "All pinned dependencies are current with no known vulnerabilities. Closing."
+            fi
+            exit 0
+          fi
+
+          labels="dependencies"
+          [ "$STATUS" = "vulnerable" ] && labels="dependencies,security"
+
+          if [ -n "$existing" ]; then
+            # Only comment when the report changed, to avoid weekly noise.
+            old=$(gh issue view "$existing" --json body --jq .body)
+            if [ "$old" != "$(cat report.md)" ]; then
+              gh issue edit "$existing" --body-file report.md --add-label "$labels"
+              gh issue comment "$existing" --body "Report changed on $(date -u +%F): status is **$STATUS**. See the updated issue description."
+            fi
+          else
+            gh issue create --title "$TITLE" --body-file report.md --label "$labels"
+          fi
