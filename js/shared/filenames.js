@@ -115,6 +115,27 @@
     return strip(t) === strip(url);
   }
 
+  // True when link text is good enough to name a file: not empty, not the
+  // PDF placeholder, not a whole paragraph, and not just the URL again.
+  function hasUsableLabel(visibleText, url) {
+    const label = decodeEntities(visibleText || "").replace(/\s+/g, " ").trim();
+    return !!label &&
+      label !== PDF_PLACEHOLDER &&
+      label.length <= MAX_LABEL_LENGTH &&
+      !looksLikeUrl(label, url);
+  }
+
+  // Key shared by the same file offered in several formats, e.g.
+  // .../CLAD_2272-23_ES.PDF and .../CLAD_2272-23_ES.docx. The URL minus the
+  // extension of its last segment, lowercased; "" when there's no extension.
+  function formatGroupKey(url) {
+    let parsed;
+    try { parsed = new URL(url); } catch { return ""; }
+    const m = parsed.pathname.match(/\.([A-Za-z0-9]{1,10})$/);
+    if (!m) return "";
+    return `${parsed.origin}${parsed.pathname.slice(0, -m[0].length)}${parsed.search}`.toLowerCase();
+  }
+
   // Suggested { filename, ext, notes, source } for one link.
   // nameFrom: "text" (link text, the default) or "url" (URL filename).
   // n: 1-based row number, used for the "file-<n>" fallback.
@@ -122,11 +143,7 @@
     const detected = detectExtension(url);
     const ext = detected.ext;
     const label = decodeEntities(visibleText || "").replace(/\s+/g, " ").trim();
-    const useUrl = nameFrom === "url" ||
-      !label ||
-      label === PDF_PLACEHOLDER ||
-      label.length > MAX_LABEL_LENGTH ||
-      looksLikeUrl(label, url);
+    const useUrl = nameFrom === "url" || !hasUsableLabel(label, url);
 
     let raw = useUrl ? splitExt(urlLastSegment(url)).base : label;
     // Don't double the extension ("report.pdf" + ".pdf").
@@ -235,6 +252,8 @@
     detectExtension,
     classifyExtension,
     sanitizeName,
+    hasUsableLabel,
+    formatGroupKey,
     suggest,
     fullName,
     isReserved,

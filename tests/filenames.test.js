@@ -171,6 +171,43 @@
     ok(!F.validate({ filename: F.fix("..\\..\\x", "pdf"), ext: "pdf", url: "" }).errors.length, "traversal fixed");
   });
 
+  // ── Formats offered side by side ─────────────────────────────────────────
+
+  test("hasUsableLabel", () => {
+    const url = "https://x.org/a/CLAD_1_ES.docx";
+    ok(F.hasUsableLabel("Report No. 74/26", url), "real text");
+    for (const t of ["", "  ", F.PDF_PLACEHOLDER, url, "www.x.org/a", "x".repeat(121)]) ok(!F.hasUsableLabel(t, url), `not ${t.slice(0, 20)}`);
+  });
+
+  test("formatGroupKey matches the same file in different formats", () => {
+    const pdf = F.formatGroupKey("https://www.oas.org/es/cidh/decisiones/2026/CLAD_2272-23_ES.PDF");
+    const docx = F.formatGroupKey("https://www.oas.org/es/cidh/decisiones/2026/CLAD_2272-23_ES.docx");
+    ok(pdf && pdf === docx, "same key");
+    ok(pdf !== F.formatGroupKey("https://www.oas.org/es/cidh/decisiones/2026/CLAD_812-21_ES.PDF"), "different file");
+    ok(F.formatGroupKey("https://x.org/f.pdf?v=1") !== F.formatGroupKey("https://x.org/f.docx?v=2"), "query distinguishes");
+    eq(F.formatGroupKey("https://x.org/folder/"), "");
+    eq(F.formatGroupKey("not a url"), "");
+  });
+
+  // ── Reading saved pages ──────────────────────────────────────────────────
+
+  const fileOf = (bytes) => new File([new Uint8Array(bytes)], "page.html");
+  const latin1 = (s) => [...s].map((c) => c.charCodeAt(0));
+
+  test("readHtmlFile honours a declared iso-8859-1 charset", async () => {
+    const html = '<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" /><p>Martínez</p>';
+    const text = await ns.readHtmlFile(fileOf(latin1(html)));
+    ok(text.includes("Martínez"), text);
+  });
+
+  test("readHtmlFile handles <meta charset>, BOM and the UTF-8 default", async () => {
+    const utf8 = (s) => [...new TextEncoder().encode(s)];
+    ok((await ns.readHtmlFile(fileOf(latin1('<meta charset="windows-1252">Perú')))).includes("Perú"), "meta charset");
+    ok((await ns.readHtmlFile(fileOf([0xEF, 0xBB, 0xBF, ...utf8('<meta charset="iso-8859-1">Perú')]))).includes("Perú"), "BOM wins");
+    ok((await ns.readHtmlFile(fileOf(utf8("<p>Perú</p>")))).includes("Perú"), "UTF-8 default");
+    ok((await ns.readHtmlFile(fileOf(utf8('<meta charset="bogus-label">Perú')))).includes("Perú"), "unknown label falls back");
+  });
+
   // ── URLs ─────────────────────────────────────────────────────────────────
 
   test("isRelativeHref", () => {

@@ -1496,6 +1496,55 @@ details[open] .dev-tools-toggle::before {
   min-width: 0;
 }
 
+.bd-search {
+  flex: 1 1 16rem;
+  min-width: 0;
+  height: 1.9rem;
+}
+
+.bd-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.6rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.bd-chip span {
+  color: var(--muted);
+}
+
+.bd-chip:hover {
+  border-color: var(--primary);
+}
+
+.bd-chip[aria-pressed="true"] {
+  background: var(--primary-soft);
+  border-color: #bfdbfe;
+  color: var(--primary);
+}
+
+.bd-chip[aria-pressed="mixed"] {
+  background: linear-gradient(90deg, var(--primary-soft) 50%, var(--surface) 50%);
+  border-color: #bfdbfe;
+}
+
+.bd-tip {
+  margin-left: auto;
+}
+
 .bd-field-error {
   margin: 0;
   padding: 0.45rem 1rem;

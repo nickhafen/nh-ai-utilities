@@ -427,7 +427,7 @@
           }
         } else if (type === "html") {
           try {
-            const text = await file.text();
+            const text = await ns.readHtmlFile(file);
             distributeLinks(extractFromPaste(text, ""), file.name, { baseUrl: detectBaseUrl(text) });
           } catch {
             railFail("Could not read the file for link extraction. Make sure it is a valid HTML file.");

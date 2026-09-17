@@ -77,6 +77,8 @@ Download every file a document links to, each saved under a readable name. It's 
 
 1. Add the document (pasted page, saved `.html`, `.docx`, `.pptx` or `.pdf`) and choose **Batch Download**.
 2. Review the list. Each linked file gets a suggested filename (from the link text, or from the URL) and file type. Edit names, change types, and uncheck rows to skip them. Web pages and unknown types start unchecked; **Show: All links** reveals them.
+   - **Same file in several formats:** when a page offers the same file as, say, a PDF and a Word copy (same address, different extension), only the preferred format is checked (*Keep PDF* by default; *Keep Word* or *Keep all* are the alternatives). A copy whose link has no text, such as a Word icon, borrows its twin's link text for its name.
+   - **Bulk selection:** filter rows by name, link text or URL, then use **Check shown** / **Uncheck shown** (or the header checkbox). The **File types** chips check or uncheck every shown row of one type. Shift+click a checkbox to apply its state to the whole range since the previous click.
 3. Problems are flagged as you type: characters Windows doesn't allow, reserved names (`CON`, `NUL`, …), duplicates, names over 150 characters, and blocked file types. **Fix automatically** cleans up a name.
 4. For a saved web page with relative links (`2024/report.pdf`), fill in **Base URL** (the page's address). It's filled in automatically when the saved file records where it came from.
 5. Click **Download bundle (.zip)**, unzip it, and double-click **Run Download.cmd**. Files are saved to a `Downloaded Files` folder next to the script, and `download-log.csv` records what happened to each row.

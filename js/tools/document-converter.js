@@ -180,7 +180,7 @@
   // Entry point for acquiring a DOM Document from a file.
   // Isolated here so a future URL-fetch path can slot in without touching the pipeline.
   async function getSourceDocument(file) {
-    return new DOMParser().parseFromString(await file.text(), "text/html");
+    return new DOMParser().parseFromString(await ns.readHtmlFile(file), "text/html");
   }
 
   // Returns cleaned HTML with scripts/styles/comments stripped — the baseline

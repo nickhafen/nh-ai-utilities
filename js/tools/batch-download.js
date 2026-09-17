@@ -6,7 +6,7 @@
 // files from other sites, so the downloading happens in that local script.
 (function () {
   const ns = window.AiUtilities = window.AiUtilities || {};
-  const { $, escapeHtml } = ns;
+  const { $, $$, escapeHtml } = ns;
   const F = ns.filenames;
 
   const NOTICE_KEY = "ai-utilities-batch-notice-collapsed";
@@ -77,6 +77,10 @@
     let autosaveTimer = null;
     let historyMessage = "";
     let exportMessage = "";
+    let prefer = "pdf";    // "pdf" | "word" | "all": which format to keep when a file comes in several
+    let formatGroupCount = 0;
+    let search = "";
+    let lastClicked = null; // row index of the last checkbox click, for Shift+click ranges
     let scriptOpen = false;
     let noticeOpen = !readNoticeCollapsed();
 
@@ -97,8 +101,16 @@
       try { return new URL(row.rawHref, PLACEHOLDER_BASE).href; } catch { return PLACEHOLDER_BASE; }
     }
 
+    // A link with no usable text (e.g. a Word icon next to the PDF link) can
+    // borrow the text of the same file in another format.
+    function labelFor(row) {
+      return row.borrowedText && !F.hasUsableLabel(row.visibleText, namingUrl(row))
+        ? row.borrowedText
+        : row.visibleText;
+    }
+
     function applySuggestion(row) {
-      const s = F.suggest(row.visibleText, namingUrl(row), { nameFrom, n: row.n });
+      const s = F.suggest(labelFor(row), namingUrl(row), { nameFrom, n: row.n });
       if (!row.extEdited) row.ext = s.ext;
       if (!row.edited) {
         // Re-fit the suggestion if the user picked a different extension.
@@ -119,6 +131,9 @@
         url: link.url || "",
         relative,
         visibleText: link.visibleText || "",
+        borrowedText: "",
+        borrowedFrom: "",
+        group: null,
         filename: "",
         ext: "auto",
         notes: [],
@@ -133,8 +148,74 @@
       return row;
     }
 
+    const FAMILY = { pdf: "pdf", doc: "word", docx: "word", rtf: "word", odt: "word" };
+
+    // Finds files offered in more than one format (same URL apart from the
+    // extension), and lets text-less links borrow a sibling's link text.
+    // Re-suggests names that change as a result (unless the user edited them).
+    function computeGroups() {
+      const byKey = new Map();
+      for (const r of rows) {
+        r.group = null;
+        if (r.kind !== "document") continue;
+        const key = F.formatGroupKey(namingUrl(r));
+        if (!key) continue;
+        if (!byKey.has(key)) byKey.set(key, []);
+        byKey.get(key).push(r);
+      }
+      formatGroupCount = 0;
+      for (const members of byKey.values()) {
+        if (new Set(members.map((m) => m.ext)).size < 2) continue;
+        formatGroupCount++;
+        const donor = members.find((m) => F.hasUsableLabel(m.visibleText, namingUrl(m)));
+        for (const m of members) {
+          m.group = members;
+          const borrowed = donor && donor !== m ? donor.visibleText : "";
+          if (borrowed !== m.borrowedText) {
+            m.borrowedText = borrowed;
+            m.borrowedFrom = borrowed ? donor.ext : "";
+            if (!m.edited) applySuggestion(m);
+          }
+        }
+      }
+    }
+
+    // Checks the preferred format in each multi-format group (all formats for
+    // "all"). Groups without the preferred format are left alone.
+    function applyPreference() {
+      const seen = new Set();
+      for (const r of rows) {
+        if (!r.group || seen.has(r.group)) continue;
+        seen.add(r.group);
+        if (prefer === "all") {
+          r.group.forEach((m) => { m.checked = true; });
+        } else if (r.group.some((m) => FAMILY[m.ext] === prefer)) {
+          r.group.forEach((m) => { m.checked = FAMILY[m.ext] === prefer; });
+        }
+      }
+    }
+
     function isVisible(row) {
       return show === "all" || row.kind === "document" || row.checked;
+    }
+
+    function matchesSearch(row) {
+      const terms = search.toLowerCase().split(/\s+/).filter(Boolean);
+      if (!terms.length) return true;
+      const hay = [row.filename, `.${row.ext}`, row.visibleText, row.borrowedText, row.url || row.rawHref]
+        .join(" ").toLowerCase();
+      return terms.every((t) => hay.includes(t));
+    }
+
+    // Rows in the table that the current search also matches.
+    function isShown(row) {
+      return isVisible(row) && matchesSearch(row);
+    }
+
+    function setChecked(i, value) {
+      rows[i].checked = value;
+      const box = $(`[data-bd-check="${i}"]`, root);
+      if (box) box.checked = value;
     }
 
     // Validation for every row; duplicates are counted among checked rows.
@@ -190,6 +271,7 @@
         return;
       }
 
+      lastClicked = null;
       const visible = rows.map((r, i) => ({ r, i })).filter(({ r }) => isVisible(r));
       root.innerHTML = `
         <div class="tool-view">
@@ -213,6 +295,25 @@
                     <option value="url" ${nameFrom === "url" ? "selected" : ""}>URL filename</option>
                   </select>
                 </label>
+                ${formatGroupCount ? `
+                <label class="separator-label" title="Some files are offered in more than one format, for example a PDF with a Word copy next to it.">Same file in several formats
+                  <select class="select-input" data-bd-prefer>
+                    <option value="pdf" ${prefer === "pdf" ? "selected" : ""}>Keep PDF</option>
+                    <option value="word" ${prefer === "word" ? "selected" : ""}>Keep Word</option>
+                    <option value="all" ${prefer === "all" ? "selected" : ""}>Keep all</option>
+                  </select>
+                </label>` : ""}
+              </div>
+              <div class="bd-toolbar-row bd-filter-row">
+                <input type="search" class="text-input bd-search" data-bd-search placeholder="Filter by name, link text or URL" aria-label="Filter rows" autocomplete="off" spellcheck="false">
+                <button type="button" class="btn btn-secondary btn-sm" data-bd-check-shown="1">Check shown</button>
+                <button type="button" class="btn btn-secondary btn-sm" data-bd-check-shown="0">Uncheck shown</button>
+                <span class="hint" data-bd-shown></span>
+              </div>
+              <div class="bd-toolbar-row">
+                <span class="hint">File types:</span>
+                <span class="bd-chips" data-bd-chips role="group" aria-label="Check or uncheck shown rows by file type"></span>
+                <span class="hint bd-tip">Tip: Shift+click checkboxes to select a range.</span>
               </div>
               <div class="bd-toolbar-row">
                 <span class="count-pill" data-bd-counts></span>
@@ -234,6 +335,7 @@
         </div>`;
 
       $("[data-bd-base]", root).value = baseUrl;
+      $("[data-bd-search]", root).value = search;
       if (scriptOpen) fillScriptPanel();
       // Set input values as properties, never through HTML.
       for (const { r, i } of visible) {
@@ -272,9 +374,7 @@
                   <td class="col-check"><input type="checkbox" data-bd-check="${i}" ${r.checked ? "checked" : ""} aria-label="Include this file"></td>
                   <td class="bd-col-name">
                     <input type="text" class="text-input bd-name-input" data-bd-name="${i}" aria-label="Filename for row ${r.n}" autocomplete="off" spellcheck="false">
-                    ${r.visibleText && r.visibleText !== F.PDF_PLACEHOLDER
-                      ? `<div class="bd-link-text" title="${escapeHtml(r.visibleText)}">Link text: ${escapeHtml(r.visibleText)}</div>`
-                      : ""}
+                    ${linkTextHtml(r)}
                   </td>
                   <td class="bd-col-ext">
                     <select class="select-input bd-ext-select" data-bd-ext="${i}" aria-label="File type for row ${r.n}">${extOptions(r.ext)}</select>
@@ -285,6 +385,13 @@
             </tbody>
           </table>
         </div>`;
+    }
+
+    function linkTextHtml(r) {
+      const text = labelFor(r);
+      if (!text || text === F.PDF_PLACEHOLDER) return "";
+      const label = text === r.visibleText ? "Link text" : `Link text (from the .${escapeHtml(r.borrowedFrom)} version)`;
+      return `<div class="bd-link-text" title="${escapeHtml(text)}">${label}: ${escapeHtml(text)}</div>`;
     }
 
     // r.url is always a cleaned http(s) URL, so it's safe as an href.
@@ -351,12 +458,40 @@
         exportBtn.dataset.reason = reason;
       }
 
+      // Search filter: hide non-matching rows in place (the row being typed
+      // in stays visible so it doesn't vanish mid-edit).
+      const focused = document.activeElement;
+      rows.forEach((r, i) => {
+        const tr = $(`[data-bd-row="${i}"]`, root);
+        if (tr && !tr.contains(focused)) tr.hidden = !matchesSearch(r);
+      });
+      const shown = rows.filter(isShown);
+      const inTable = rows.filter(isVisible).length;
+      const shownNote = $("[data-bd-shown]", root);
+      if (shownNote) shownNote.textContent = search.trim() ? `Showing ${shown.length} of ${inTable}` : "";
+
       const checkAll = $("[data-bd-check-all]", root);
       if (checkAll) {
-        const shown = rows.filter(isVisible);
         const on = shown.filter((r) => r.checked).length;
         checkAll.checked = on > 0 && on === shown.length;
         checkAll.indeterminate = on > 0 && on < shown.length;
+      }
+
+      const chips = $("[data-bd-chips]", root);
+      if (chips) {
+        const types = new Map();
+        for (const r of shown) {
+          const t = types.get(r.ext) || { total: 0, on: 0 };
+          t.total++;
+          if (r.checked) t.on++;
+          types.set(r.ext, t);
+        }
+        chips.innerHTML = [...types].sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0])).map(([ext, t]) => {
+          const pressed = t.on === t.total ? "true" : t.on ? "mixed" : "false";
+          const name = ext === "auto" ? "unknown type" : `.${ext}`;
+          const action = pressed === "true" ? "Uncheck" : "Check";
+          return `<button type="button" class="bd-chip" data-bd-chip="${escapeHtml(ext)}" aria-pressed="${pressed}" title="${action} all shown ${escapeHtml(name)} rows">${escapeHtml(name)} <span>${t.on}/${t.total}</span></button>`;
+        }).join("") || `<span class="hint">none shown</span>`;
       }
 
       refreshAlerts(selected, problems);
@@ -377,6 +512,10 @@
       const docs = rows.filter((r) => r.kind === "document").length;
       if (show === "docs" && !docs && !rows.some((r) => r.checked)) {
         msgs.push(["info", `Found ${rows.length} link${rows.length === 1 ? "" : "s"}, but none point to a supported file type. Switch <em>Show</em> to <em>All links</em> to review them.`]);
+      }
+
+      if (formatGroupCount && prefer !== "all") {
+        msgs.push(["info", `${formatGroupCount} file${formatGroupCount === 1 ? " is" : "s are"} offered in more than one format. Only the ${prefer === "pdf" ? "PDF" : "Word"} version is checked; change this with <em>Same file in several formats</em>.`]);
       }
 
       if (!selected && rows.some(isVisible)) msgs.push(["info", "Check at least one row to build a download bundle."]);
@@ -444,6 +583,39 @@
         scheduleAutosave();
       });
 
+      const preferSelect = $("[data-bd-prefer]", root);
+      if (preferSelect) {
+        preferSelect.addEventListener("change", () => {
+          prefer = preferSelect.value;
+          applyPreference();
+          render();
+          scheduleAutosave();
+        });
+      }
+
+      $("[data-bd-search]", root).addEventListener("input", (e) => {
+        search = e.target.value;
+        lastClicked = null;
+        refreshStatus();
+      });
+
+      const setShown = (value) => {
+        rows.forEach((r, i) => { if (isShown(r)) setChecked(i, value); });
+        changed();
+      };
+      root.querySelectorAll("[data-bd-check-shown]").forEach((btn) => {
+        btn.addEventListener("click", () => setShown(btn.dataset.bdCheckShown === "1"));
+      });
+
+      $("[data-bd-chips]", root).addEventListener("click", (e) => {
+        const chip = e.target.closest("[data-bd-chip]");
+        if (!chip) return;
+        const ext = chip.dataset.bdChip;
+        const value = chip.getAttribute("aria-pressed") !== "true";
+        rows.forEach((r, i) => { if (r.ext === ext && isShown(r)) setChecked(i, value); });
+        changed();
+      });
+
       $("[data-bd-view-script]", root).addEventListener("click", (e) => {
         scriptOpen = !scriptOpen;
         const panel = $("[data-bd-script]", root);
@@ -468,21 +640,9 @@
       });
 
       table.addEventListener("change", (e) => {
-        const check = e.target.closest("[data-bd-check]");
-        if (check) {
-          rows[Number(check.dataset.bdCheck)].checked = check.checked;
-          changed();
-          return;
-        }
         const checkAll = e.target.closest("[data-bd-check-all]");
         if (checkAll) {
-          rows.forEach((r, i) => {
-            if (!isVisible(r)) return;
-            r.checked = checkAll.checked;
-            const box = $(`[data-bd-check="${i}"]`, root);
-            if (box) box.checked = checkAll.checked;
-          });
-          changed();
+          setShown(checkAll.checked);
           return;
         }
         const ext = e.target.closest("[data-bd-ext]");
@@ -494,7 +654,27 @@
         }
       });
 
+      // Row checkboxes are handled on click (not change) to read shiftKey.
+      // Shift+click applies the clicked box's new state to every shown row
+      // between it and the previously clicked box.
       table.addEventListener("click", (e) => {
+        const check = e.target.closest("[data-bd-check]");
+        if (check) {
+          const i = Number(check.dataset.bdCheck);
+          const order = $$("tbody tr[data-bd-row]:not([hidden])", root).map((tr) => Number(tr.dataset.bdRow));
+          const from = order.indexOf(lastClicked);
+          const to = order.indexOf(i);
+          if (e.shiftKey && from >= 0 && to >= 0) {
+            const [a, b] = from < to ? [from, to] : [to, from];
+            order.slice(a, b + 1).forEach((idx) => setChecked(idx, check.checked));
+            window.getSelection()?.removeAllRanges();
+          } else {
+            rows[i].checked = check.checked;
+          }
+          lastClicked = i;
+          changed();
+          return;
+        }
         const fixBtn = e.target.closest("[data-bd-fix]");
         if (!fixBtn) return;
         const i = Number(fixBtn.dataset.bdFix);
@@ -560,6 +740,7 @@
         baseUrl,
         show,
         nameFrom,
+        prefer,
         rows: rows.map((r) => ({
           url: r.relative ? "" : r.url,
           rawHref: r.rawHref,
@@ -604,6 +785,10 @@
       baseUrl = "";
       show = "docs";
       nameFrom = "text";
+      prefer = "pdf";
+      formatGroupCount = 0;
+      search = "";
+      lastClicked = null;
       extractionError = "";
       restoreFailed = false;
       sessionId = null;
@@ -621,6 +806,8 @@
       baseUrl = detectedBase;
       extractionError = error;
       rows = links.map(makeRow);
+      computeGroups();
+      applyPreference();
       render();
     }
 
@@ -647,6 +834,8 @@
       baseUrl = String(s.baseUrl || "");
       show = s.show === "all" ? "all" : "docs";
       nameFrom = s.nameFrom === "url" ? "url" : "text";
+      // Sessions saved before this setting existed kept every format.
+      prefer = ["pdf", "word", "all"].includes(s.prefer) ? s.prefer : "all";
       exportCount = Number(s.exportCount) || 0;
       lastExportedAt = s.lastExportedAt || null;
       rows = s.rows.map((saved, i) => {
@@ -659,6 +848,10 @@
         row.extEdited = !!saved.extEdited;
         return row;
       });
+      // Recompute groups for display only; saved names and checks win.
+      const savedNames = rows.map((r) => r.filename);
+      computeGroups();
+      rows.forEach((r, i) => { r.filename = savedNames[i]; });
       render();
       return sourceLabel;
     }

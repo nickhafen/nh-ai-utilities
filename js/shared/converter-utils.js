@@ -32,6 +32,26 @@
     return null;
   };
 
+  // -- Reading saved web pages --
+
+  // Reads a saved .html file using the character set it declares. File.text()
+  // always decodes as UTF-8, which garbles pages saved as windows-1252 /
+  // iso-8859-1 ("Martínez" -> "Mart�nez"). Order: byte-order mark, then a
+  // <meta charset> or http-equiv declaration near the top, then UTF-8.
+  ns.readHtmlFile = async function readHtmlFile(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const decode = (label) => {
+      try { return new TextDecoder(label).decode(bytes); } catch { return null; }
+    };
+    if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) return decode("utf-8");
+    if (bytes[0] === 0xFF && bytes[1] === 0xFE) return decode("utf-16le");
+    if (bytes[0] === 0xFE && bytes[1] === 0xFF) return decode("utf-16be");
+    // Declarations are ASCII, so a byte-for-byte (latin1) view is enough to find one.
+    const head = new TextDecoder("latin1").decode(bytes.subarray(0, 4096));
+    const declared = (head.match(/<meta[^>]+charset\s*=\s*["']?\s*([\w.:-]+)/i) || [])[1];
+    return (declared && decode(declared.toLowerCase())) || decode("utf-8");
+  };
+
   // -- Plain-text extraction --
 
   // Returns plain text from an HTML string for token-count comparison.
