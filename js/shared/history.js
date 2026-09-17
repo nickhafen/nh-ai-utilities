@@ -10,34 +10,40 @@
       catch { return []; }
     },
 
+    // Returns true if the sessions were written, false if storage is full or
+    // blocked. Callers that don't care can ignore the result.
     save(sessions) {
       try {
         localStorage.setItem(KEY, JSON.stringify(sessions.slice(0, MAX)));
+        return true;
       } catch {
         // If storage is full, drop the oldest half and retry
         try {
           localStorage.setItem(KEY, JSON.stringify(sessions.slice(0, Math.floor(MAX / 2))));
-        } catch { /* give up */ }
+          return true;
+        } catch {
+          return false;
+        }
       }
     },
 
     add(session) {
       const sessions = this.load();
       sessions.unshift(session);
-      this.save(sessions);
+      return this.save(sessions);
     },
 
+    // Returns false if the session no longer exists or couldn't be saved.
     update(id, updates) {
       const sessions = this.load();
       const i = sessions.findIndex(s => s.id === id);
-      if (i >= 0) {
-        sessions[i] = { ...sessions[i], ...updates };
-        this.save(sessions);
-      }
+      if (i < 0) return false;
+      sessions[i] = { ...sessions[i], ...updates };
+      return this.save(sessions);
     },
 
     remove(id) {
-      this.save(this.load().filter(s => s.id !== id));
+      return this.save(this.load().filter(s => s.id !== id));
     },
 
     get(id) {

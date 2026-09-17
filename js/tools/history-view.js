@@ -45,6 +45,15 @@
       return parts.join(" &middot; ");
     }
 
+    if (session.inputType === "batch-download") {
+      const rows = Array.isArray(session.rows) ? session.rows : [];
+      const selected = rows.filter((r) => r && r.checked).length;
+      const exports = Number(session.exportCount) || 0;
+      const parts = [`${selected} file${selected === 1 ? "" : "s"} selected of ${rows.length} link${rows.length === 1 ? "" : "s"}`];
+      if (exports) parts.push(`exported ${exports}&times;`);
+      return parts.join(" &middot; ");
+    }
+
     if (session.inputType === "skill") {
       const words = (session.body || "").trim().split(/\s+/).filter(Boolean).length;
       const parts = [`${words} word${words === 1 ? "" : "s"}`];
@@ -78,7 +87,7 @@
             ${historyNoticeHtml()}
             <div class="history-empty">
               <p>No history yet.</p>
-              <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, save a skill, or save a curriculum plan to get started.</p>
+              <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, export a batch download, save a skill, or save a curriculum plan to get started.</p>
             </div>
           </div>
         `;
@@ -114,7 +123,7 @@
                 ${historyNoticeHtml()}
                 <div class="history-empty">
                   <p>No history yet.</p>
-                  <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, save a skill, or save a curriculum plan to get started.</p>
+                  <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, export a batch download, save a skill, or save a curriculum plan to get started.</p>
                 </div>
               </div>
             `;
@@ -132,6 +141,9 @@
             } else if (session.inputType === "skill") {
               ns.pendingSkillSession = session;
               window.location.hash = "skill-creator";
+            } else if (session.inputType === "batch-download") {
+              ns.pendingBatchSession = session;
+              window.location.hash = "document-tools";
             } else if (session.inputType === "curriculum") {
               ns.pendingCurriculumSession = session;
               window.location.hash = "curriculum-planner";
@@ -151,7 +163,7 @@
             ${historyNoticeHtml()}
             <div class="history-empty">
               <p>No history yet.</p>
-              <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, save a skill, or save a curriculum plan to get started.</p>
+              <p class="hint" style="margin-top:0.5rem">Convert a file, analyze a document's links, export a batch download, save a skill, or save a curriculum plan to get started.</p>
             </div>
           </div>
         `;
@@ -164,6 +176,7 @@
       skill:      { badge: `<span class="session-type-badge session-type-skill">SKILL</span>`,           title: "Click to restore this skill" },
       curriculum: { badge: `<span class="session-type-badge session-type-curriculum">PLAN</span>`,       title: "Click to restore this curriculum plan" },
       conversion: { badge: `<span class="session-type-badge session-type-conversion">TOKENS</span>`,     title: "Click to restore this conversion" },
+      "batch-download": { badge: `<span class="session-type-badge session-type-batch">BATCH</span>`,    title: "Click to reopen this download list" },
     };
     const kind = kinds[s.inputType] ||
       { badge: `<span class="session-type-badge session-type-doc">DOC</span>`, title: "Click to restore this analysis" };

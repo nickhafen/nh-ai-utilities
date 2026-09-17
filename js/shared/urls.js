@@ -87,6 +87,34 @@
     }
   };
 
+  // True for an href that needs a base URL to mean anything: no scheme
+  // ("2024/report.pdf", "/en/page.asp", "//host/x"), and not a same-page
+  // anchor or a bare "www." address (cleanUrl already handles those).
+  // Anything starting with a backslash (UNC paths like \\host\share) is
+  // rejected outright.
+  ns.isRelativeHref = function isRelativeHref(value) {
+    const href = String(value || "").trim().replace(/[\u0000-\u001f\u007f]/g, "");
+    if (!href || href.startsWith("#") || href.startsWith("\\") || /^www\./i.test(href)) return false;
+    return !/^[a-z][a-z0-9+.-]*:/i.test(href);
+  };
+
+  // Resolves a (possibly relative) href against a base URL, then applies the
+  // same cleanup as cleanUrl (so only http/https results come back). Returns
+  // "" when either part is unusable. cleanUrl itself stays base-less, so the
+  // other workflows keep receiving only links that were absolute to begin with.
+  ns.resolveUrl = function resolveUrl(href, base) {
+    const raw = String(href || "").trim().replace(/[\u0000-\u001f\u007f]/g, "");
+    if (!raw) return "";
+    if (!ns.isRelativeHref(raw)) return ns.cleanUrl(raw);
+    const cleanBase = ns.cleanUrl(base);
+    if (!cleanBase) return "";
+    try {
+      return ns.cleanUrl(new URL(raw, cleanBase).href);
+    } catch {
+      return "";
+    }
+  };
+
   ns.extractUrls = function extractUrls(text) {
     const candidates = [];
     const source = String(text || "");

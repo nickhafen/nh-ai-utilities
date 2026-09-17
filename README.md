@@ -6,7 +6,7 @@ Browser-based tools for AI-assisted academic and professional work. No sign-in, 
 
 ### Document Tools
 
-Add a document once in the persistent document panel — a file (`.docx`, `.pptx`, `.pdf`, `.html`, or a screenshot) or pasted text — then run any workflow against it without re-adding it. The panel tracks the current document across workflow switches, and each workflow lists which inputs it accepts via format chips (e.g. Convert to Markdown accepts every file type; the two link workflows accept `.docx`, `.html`, `.pdf`, `.pptx`, or pasted text — not screenshots).
+Add a document once in the persistent document panel — a file (`.docx`, `.pptx`, `.pdf`, `.html`, or a screenshot) or pasted text — then run any workflow against it without re-adding it. The panel tracks the current document across workflow switches, and each workflow lists which inputs it accepts via format chips (e.g. Convert to Markdown accepts every file type; the three link workflows accept `.docx`, `.html`, `.pdf`, `.pptx`, or pasted text — not screenshots).
 
 **Convert to Markdown** — convert Word documents, PowerPoint decks, PDFs, screenshots, and saved web pages to Markdown before sharing with an AI tool. Everything runs locally in the browser — no content leaves your device.
 
@@ -56,7 +56,7 @@ Add a document once in the persistent document panel — a file (`.docx`, `.pptx
 
 Conversions are saved to History (Markdown output plus the before/after comparison) and can be restored later. Document Tools keeps its state — including the current document — when you navigate to another tool and back within the same visit.
 
-Adding a `.docx`, `.html`, `.pdf`, or `.pptx` file, or pasting text, also extracts its links once and hands the same list to both link workflows below, so switching between them never re-extracts or re-checks from scratch. For PDFs, links come from the file's actual link annotations (not just URLs visible as text) — a link's visible label isn't matched yet, so the URL is shown as its own label, same as a bare-URL paste.
+Adding a `.docx`, `.html`, `.pdf`, or `.pptx` file, or pasting text, also extracts its links once and hands the same list to the link workflows below, so switching between them never re-extracts or re-checks from scratch. For PDFs, links come from the file's actual link annotations (not just URLs visible as text) — a link's visible label isn't matched yet, so the URL is shown as its own label, same as a bare-URL paste.
 
 **Extract URLs** — a lightweight list of every link in the document (visible text + destination), with a separator choice (new line, space, tab, or comma) for the "Copy URLs" output, plus CSV export. No network requests — just extraction.
 
@@ -67,9 +67,63 @@ Adding a `.docx`, `.html`, `.pdf`, or `.pptx` file, or pasting text, also extrac
 - Configurable AI URL tag list
 - Filter by flagged or unreachable, sortable columns
 - Copy URLs or download results as CSV
-- Session history saved locally (Check AI Indicators sessions only)
+- Session history saved locally
 
 > **Note:** The tool detects whether a server responded, not what it said. A 404 page still shows as Reachable. Some links redirected through services like LinkedIn or Google may show as Unreachable — always verify flagged results.
+
+#### Batch Download
+
+Download every file a document links to, each saved under a readable name. It's built for pages like a court or commission's list of decisions, where the link text ("Report No. 238/24") makes a much better filename than the file's own name (`BRIN_804-19_EN.PDF`).
+
+1. Add the document (pasted page, saved `.html`, `.docx`, `.pptx` or `.pdf`) and choose **Batch Download**.
+2. Review the list. Each linked file gets a suggested filename (from the link text, or from the URL) and file type. Edit names, change types, and uncheck rows to skip them. Web pages and unknown types start unchecked; **Show: All links** reveals them.
+   - **Same file in several formats:** when a page offers the same file as, say, a PDF and a Word copy (same address, different extension), only the preferred format is checked (*Keep PDF* by default; *Keep Word* or *Keep all* are the alternatives). A copy whose link has no text, such as a Word icon, borrows its twin's link text for its name.
+   - **Bulk selection:** filter rows by name, link text or URL, then use **Check shown** / **Uncheck shown** (or the header checkbox). The **File types** chips check or uncheck every shown row of one type. Shift+click a checkbox to apply its state to the whole range since the previous click.
+3. Problems are flagged as you type: characters Windows doesn't allow, reserved names (`CON`, `NUL`, …), duplicates, names over 150 characters, and blocked file types. **Fix automatically** cleans up a name.
+4. For a saved web page with relative links (`2024/report.pdf`), fill in **Base URL** (the page's address). It's filled in automatically when the saved file records where it came from.
+5. Click **Download bundle (.zip)**, unzip it, and double-click **Run Download.cmd**. Files are saved to a `Downloaded Files` folder next to the script, and `download-log.csv` records what happened to each row.
+
+**Why a script?** A web page can't download and rename files from other sites (they don't allow it), and adding a server would mean your documents pass through it. So the page builds the list, and a small script on your own computer does the downloading.
+
+**What's in the bundle:**
+- `files.csv`: the list (URL, Filename, Extension). This is the only part built from your document.
+- `download-files.ps1`: the PowerShell script. It's the same fixed text in every bundle; nothing from your document is ever inserted into it. Read it in the app with **View script**.
+- `Run Download.cmd`: runs the script (`powershell -NoProfile -ExecutionPolicy Bypass -File download-files.ps1`), then waits so you can read the results.
+- `README.txt`: how to run it, what to expect, and how to check the script's fingerprint.
+
+**What the script does and doesn't do:**
+- Downloads only `http`/`https` links; `file://`, network (UNC) paths and anything else are skipped.
+- Re-checks every row, since `files.csv` could be edited by hand: Windows-safe names, allowed types only, and the saved file must land inside `Downloaded Files`.
+- Never overwrites: an existing name gets ` (2)`, ` (3)`, and so on.
+- Downloads to a temporary file first, so failures leave nothing behind. A file that turns out to be a web page (usually a login or error page) is discarded and reported.
+- For rows with type `auto`, works out the type from the file's first bytes and the server's content type, and discards anything not on the allowed list.
+- Marks saved files as downloaded from the internet (like a browser does), so Office opens them in Protected View.
+- Never opens or runs what it downloads, makes no registry, profile or system changes, and needs no administrator rights. It opens the `Downloaded Files` folder at the end if anything was saved.
+- Explains every skip or failure in plain language (login required, not found, site busy, couldn't connect, path too long, and so on).
+
+**Allowed file types:** `pdf doc docx rtf odt txt md csv xls xlsx ods ppt pptx odp jpg jpeg png gif tif tiff webp mp3 mp4 m4a wav zip`. Zip files are allowed with a warning, since they can contain anything. Everything else is blocked, both in the app and in the script.
+
+**Script fingerprint.** Before running the script, you can check that it's the published version. In the unzipped folder, run `Get-FileHash .\download-files.ps1` in PowerShell and compare the result with this SHA-256:
+
+```
+8375EF22FC31C98D50CA4B3B84D484B6D1F58D7624F5ECA7E207216B9C5F4D16
+```
+
+If they don't match, don't run it. (The app deliberately doesn't show this value: a tampered page could fake it, so this README is the reference.)
+
+**Limitations & risks:**
+- **Windows only.** Windows will show an "Open File – Security Warning" when you run the runner; that's expected for files from the internet.
+- **No sign-in:** files behind a login, paywall or CAPTCHA fail, and the script says so. It doesn't use your browser's sign-in.
+- **Missing links:** links added by JavaScript, or hidden behind "load more" or pagination, may not be captured. Paste the page instead of saving it, or scroll everything into view first.
+- **Saved pages** may need a Base URL.
+- **PDF links** have no link text, so their names come from the URL.
+- **Links written without `http`** (e.g., `oas.org/...`) aren't detected; `www.` links are.
+- **Allowed file types only**; others are blocked for safety.
+- **You run a script from this site.** Read it first (**View script**) and check its fingerprint. The script is not code-signed.
+- **Code loaded at runtime** (tokenizer, PDF reader, OCR) isn't integrity-checked; this is an accepted, documented risk (see [Security & third-party code](#security--third-party-code)).
+- **You are responsible** for having the right to download the linked files.
+
+Each export is saved to History, and later edits to the same list update that entry. Clicking the History card reopens the list so you can edit it and export again (the original document isn't stored).
 
 **More workflows may be added later** — the document panel and workflow list are built to support additional document-based tools without requiring the document to be re-added.
 
@@ -99,7 +153,7 @@ Plan an AI curriculum using the AI-Ready Lawyer framework. Drag competency notes
 
 ### History
 
-Document analyses, conversions, saved skill drafts, and curriculum plans are stored in your browser's local storage. Click any card to restore it in its original tool.
+Document analyses, conversions, Batch Download lists, saved skill drafts, and curriculum plans are stored in your browser's local storage. Click any card to restore it in its original tool.
 
 ## Getting Started (No Coding Required)
 
@@ -134,6 +188,14 @@ python3 -m http.server 5173
 # then open http://localhost:5173
 ```
 
+### Tests
+
+Open these pages in a browser (served or straight from disk). There's no test framework; results appear on the page and in the tab title.
+
+- `tests/filenames.html`: filename suggestion, cleanup and validation, and URL resolution.
+- `tests/script-hash.html`: format checks for the Batch Download script, and its SHA-256. **Whenever `download-files.ps1` changes**, copy the new value into the script fingerprint under [Batch Download](#batch-download).
+- `tests/fixtures/README.md`: manual checks that run the script against hostile input (`hostile.csv`) and a local test server.
+
 ## Privacy
 
 All processing runs in your browser. No content is sent to any server. History is stored in `localStorage` on this device only and is not synced across devices or browsers.
@@ -165,6 +227,8 @@ The app has no server, but it does load some libraries from public CDNs. If a CD
 
 These are pinned to fixed versions and limited by the CSP, but a compromised copy on those CDNs would not be detected. This risk is accepted because these libraries have no practical integrity-checked alternative without adding a build step, and they only run when you use the feature that needs them. To avoid them entirely, don't convert PDFs or screenshots, and ignore token counts.
 
+**Batch Download** is the one feature that produces something you run outside the browser (a PowerShell script). The script is a fixed constant in `js/shared/batch-download-script.js`, your data goes only into `files.csv`, and you can check the script's fingerprint before running it. See [Batch Download](#batch-download).
+
 ## Roadmap
 
 ### Document Tools
@@ -173,6 +237,8 @@ These are pinned to fixed versions and limited by the CSP, but a compromised cop
 - [x] Add PDF-to-Markdown conversion — headings, wrapped lines, lists, best-effort tables, header/footer stripping. Scanned pages (OCR fallback) still open.
 - [x] Add screenshot OCR. Confidence indicators and scanned-PDF OCR (rasterize page → shared OCR module) still open.
 - [ ] Add batch conversion and a ZIP download for multiple inputs. No server needed — the browser can loop the existing per-file pipelines over a multi-file picker/drop and package the results with the ZIP library (JSZip) already used for SKILL Creator exports. A server would only start to matter for things this app doesn't do today: processing large batches in the background after closing the tab, or handling a total upload size too large for one browser tab's memory.
+- [x] Add a Batch Download workflow: review the names of linked files, then download them with a fixed local script.
+- [ ] Batch Download: optional bookmarklet that copies the current page's document links to the clipboard.
 - [ ] Add exact tokenizer choices for additional model and provider families.
 - [ ] Add a "semantic budget" preview that highlights content removed by each option before export.
 - [ ] Add presets such as "smallest possible," "preserve academic citations," "preserve tables," and "preserve legal structure."
