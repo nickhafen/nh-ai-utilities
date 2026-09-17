@@ -160,7 +160,7 @@ The app has no server, but it does load some libraries from public CDNs. If a CD
 | Library | Source | Used by |
 |---|---|---|
 | js-tiktoken 1.0.21 (tokenizer) | esm.sh | Token counts in Convert to Markdown |
-| pdf.js 4.6.82 + its worker | cdnjs.cloudflare.com | PDF conversion and PDF link extraction |
+| pdf.js 6.3.289 + its worker | cdnjs.cloudflare.com | PDF conversion and PDF link extraction |
 | tesseract.js 5.1.1 + its workers, WebAssembly core and English language data | cdn.jsdelivr.net (and the data hosts tesseract uses) | Screenshot OCR |
 
 These are pinned to fixed versions and limited by the CSP, but a compromised copy on those CDNs would not be detected. This risk is accepted because these libraries have no practical integrity-checked alternative without adding a build step, and they only run when you use the feature that needs them. To avoid them entirely, don't convert PDFs or screenshots, and ignore token counts.
