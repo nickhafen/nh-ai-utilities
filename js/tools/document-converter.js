@@ -183,6 +183,23 @@
     return new DOMParser().parseFromString(await ns.readHtmlFile(file), "text/html");
   }
 
+  // Readability drops small, link-heavy blocks as navigation. A heading inside
+  // one (e.g. a rule title wrapped with a "printed on … see <link>" note) goes
+  // with it, so move each heading out of any wrapper that holds little else.
+  function hoistHeadings(doc) {
+    const HEADINGS = "h1,h2,h3,h4,h5,h6";
+    doc.body.querySelectorAll(HEADINGS).forEach((h) => {
+      let target = null;
+      for (let node = h.parentElement; node && node !== doc.body && /^(DIV|SECTION|HEADER|SPAN)$/.test(node.tagName); node = node.parentElement) {
+        if (node.querySelectorAll(HEADINGS).length > 1) break;
+        if (node.textContent.length - h.textContent.length > 300) break;
+        target = node;
+      }
+      if (target) target.before(h);
+    });
+    return doc;
+  }
+
   // Returns cleaned HTML with scripts/styles/comments stripped — the baseline
   // token cost of sharing raw page HTML with an LLM.
   function cleanBaseline(doc) {
@@ -675,7 +692,7 @@
         }
         const doc = await getSourceDocument(file);
         const baselineHtml = cleanBaseline(doc);
-        const article = new Readability(doc.cloneNode(true)).parse();
+        const article = new Readability(hoistHeadings(doc.cloneNode(true))).parse();
         if (!article || !article.content) {
           fail("Readability could not extract meaningful content from this page. The file may have too little body text, or content may load dynamically.");
           run.textContent = "Try again"; return;
