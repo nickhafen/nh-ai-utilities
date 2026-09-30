@@ -202,10 +202,10 @@
                 <ul class="skill-resources-list">
                   <li>
                     <a href="https://agentskills.io/home" target="_blank" rel="noopener noreferrer">Agent Skills</a>
-                    <p>Official documentation for skills.</p>
+                    <p>The open, cross-platform format that skills follow (originally from Anthropic). See the <a href="https://agentskills.io/specification" target="_blank" rel="noopener noreferrer">specification</a> for the full file format.</p>
                   </li>
                   <li>
-                    <a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener noreferrer">Claude Skill Documentation</a>
+                    <a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener noreferrer">Claude Code skill documentation</a>
                     <p>Official docs covering skill structure, frontmatter fields, and how Claude applies skills.</p>
                   </li>
                   <li>
@@ -237,24 +237,29 @@
                 </ul>
               </div>
 
-              <!-- Full-width row: platform instructions (links TBD) -->
+              <!-- Full-width row: platform instructions -->
               <div class="skill-resources-group skill-resources-group--full">
                 <h3 class="skill-resources-heading">Using Skill Files in AI Platforms</h3>
                 <ul class="skill-resources-list skill-resources-list">
                   <li>
-                    <strong><a href="https://support.claude.com/en/articles/12512180-use-skills-in-claude" target="_blank" rel="noopener noreferrer">Claude Code</a></strong>
-                    
+                    <strong><a href="https://support.claude.com/en/articles/12512180-use-skills-in-claude" target="_blank" rel="noopener noreferrer">Claude</a></strong>
+                    <p>Upload the skill .zip under Customize &gt; Skills &gt; + &gt; Create skill &gt; Upload a skill. Works on every plan, including Free; code execution must be on (Settings &gt; Capabilities).</p>
+                  </li>
+                  <li>
+                    <strong><a href="https://code.claude.com/docs/en/skills" target="_blank" rel="noopener noreferrer">Claude Code</a></strong>
+                    <p>Unzip and put the skill folder in ~/.claude/skills/. Skills uploaded to a claude.ai account also sync to Claude Code when you sign in with that account.</p>
                   </li>
                   <li>
                     <strong><a href="https://help.openai.com/en/articles/20001066-skills-in-chatgpt" target="_blank" rel="noopener noreferrer">ChatGPT</a></strong>
-                    
+                    <p>Business, Enterprise, Healthcare, and Edu plans only. Upload the .zip under Plugins &gt; Skills &gt; Create &gt; Upload from your computer. ChatGPT scans each upload, and some are marked Needs Review.</p>
                   </li>
                   <li>
-                    <strong><a href="https://support.google.com/gemini/answer/17094296?hl=en&co=GENIE.Platform%3DAndroid" target="_blank" rel="noopener noreferrer">Gemini Spark</a></strong>
+                    <strong><a href="https://support.google.com/gemini/answer/17094296" target="_blank" rel="noopener noreferrer">Gemini</a></strong>
+                    <p>Personal Google accounts only (not work or school), age 18+, with Keep Activity on; still rolling out. Upload a .zip, a folder, or a SKILL.md under Settings &gt; Skills. It doesn't accept Word (.docx) or JavaScript files, and a skill's scripts can't use the internet. 100 MB limit.</p>
                   </li>
                   <li>
-                    <strong>Other Platforms</strong>
-                    <p><em>Links coming soon.</em></p>
+                    <strong><a href="https://agentskills.io/clients" target="_blank" rel="noopener noreferrer">Other platforms</a></strong>
+                    <p>List of tools that support Agent Skills, each with a link to its setup steps.</p>
                   </li>
                 </ul>
               </div>
