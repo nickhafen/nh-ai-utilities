@@ -289,6 +289,9 @@
         return;
       }
 
+      // Friendlier label for the bottom mode switch (merges into Toast's en strings)
+      toastui.Editor.setLanguage(['en', 'en-US'], { WYSIWYG: 'Rich Text' });
+
       // ── DOM refs ────────────────────────────────────────────────────────
 
       const nameInput      = $('[data-sc-name]',          root);

@@ -1412,6 +1412,13 @@ details[open] .dev-tools-toggle::before {
   grid-template-columns: 1fr !important;
 }
 
+/* Tabs layout: the WYSIWYG mode already shows rendered output, so hide
+   Toast UI's Markdown-mode Write/Preview tabs. !important overrides the
+   inline display:block Toast sets on mode switch. */
+.skill-split-full .toastui-editor-md-tab-container {
+  display: none !important;
+}
+
 .session-type-badge {
   display: inline-flex;
   align-items: center;
