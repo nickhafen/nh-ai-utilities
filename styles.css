@@ -1097,6 +1097,116 @@ button.count-pill.pill-active {
   gap: 0.25rem 1rem;
 }
 
+/* -- Import from file -- */
+
+.skill-import-toggle {
+  justify-content: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  border-radius: 8px;
+}
+
+.skill-import-toggle::-webkit-details-marker { display: none; }
+
+.skill-import-toggle::before {
+  content: '>';
+  font-size: 0.6rem;
+  color: var(--muted);
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.skill-import-panel[open] .skill-import-toggle { border-radius: 8px 8px 0 0; }
+.skill-import-panel[open] .skill-import-toggle::before { transform: rotate(90deg); }
+.skill-import-panel:not([open]) .skill-import-toggle { border-bottom: 0; }
+
+.skill-import-panel.drag-over:not([open]) .skill-import-toggle,
+.skill-import-panel.drag-over .skill-import-drop {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.skill-import-body {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.skill-import-body.has-report {
+  grid-template-columns: minmax(220px, 1fr) 2fr;
+  align-items: start;
+}
+
+.skill-import-body .converter-error {
+  margin: 0;
+  grid-column: 1 / -1;
+}
+
+.skill-import-drop {
+  min-height: 7rem;
+  padding: 1rem;
+  gap: 0.35rem;
+}
+
+.skill-import-report {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.skill-import-report-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.skill-import-list {
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.skill-import-item {
+  display: grid;
+  grid-template-columns: 4.25rem 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.8rem;
+  color: var(--muted-strong);
+  word-break: break-word;
+}
+
+.skill-import-badge {
+  justify-self: start;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.skill-import-item.is-ok .skill-import-badge    { color: var(--success); background: var(--success-soft); border-color: var(--success-border); }
+.skill-import-item.is-fixed .skill-import-badge { color: var(--primary); background: var(--primary-soft); border-color: #bfdbfe; }
+.skill-import-item.is-warn .skill-import-badge  { color: var(--warning); background: var(--warning-soft); border-color: var(--warning-border); }
+.skill-import-item.is-needs .skill-import-badge { color: #b91c1c; background: #fef2f2; border-color: #fecaca; }
+
+.skill-import-fix {
+  background: none;
+  color: var(--primary);
+  font-size: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  padding: 0;
+}
+
 .skill-meta-fields {
   display: flex;
   flex-direction: column;
@@ -1731,7 +1841,8 @@ details[open] .dev-tools-toggle::before {
 
   .utility-grid,
   .checker-grid,
-  .skill-split {
+  .skill-split,
+  .skill-import-body.has-report {
     grid-template-columns: 1fr;
   }
 

@@ -126,22 +126,7 @@
     return doc;
   }
 
-  // Shared Turndown factory used by both the DOCX markdown path and the HTML extraction path.
-  function makeTurndown() {
-    const td = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced" });
-    td.addRule("tables", {
-      filter: "table",
-      replacement(content, table) {
-        const rows = Array.from(table.querySelectorAll("tr")).map((row) =>
-          Array.from(row.children).filter((cell) => /^(TD|TH)$/.test(cell.tagName))
-            .map((cell) => cell.textContent.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim())
-        ).filter((row) => row.length);
-        if (!rows.length) return "";
-        return `\n\n${ns.markdownTable(rows)}\n\n`;
-      },
-    });
-    return td;
-  }
+  const makeTurndown = () => ns.makeTurndown();
 
   function markdown(doc) {
     const body = doc.body.cloneNode(true);

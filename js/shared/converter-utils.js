@@ -99,6 +99,26 @@
     return `${line(norm[0])}\n${line(Array(width).fill("---"))}\n${norm.slice(1).map(line).join("\n")}`;
   };
 
+  // -- HTML to Markdown --
+
+  // Shared Turndown factory: used by the DOCX and HTML conversion paths and
+  // by SKILL Creator's Word import. Requires the Turndown CDN script.
+  ns.makeTurndown = function makeTurndown() {
+    const td = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced" });
+    td.addRule("tables", {
+      filter: "table",
+      replacement(content, table) {
+        const rows = Array.from(table.querySelectorAll("tr")).map((row) =>
+          Array.from(row.children).filter((cell) => /^(TD|TH)$/.test(cell.tagName))
+            .map((cell) => cell.textContent.replace(/\|/g, "\\|").replace(/\s+/g, " ").trim())
+        ).filter((row) => row.length);
+        if (!rows.length) return "";
+        return `\n\n${ns.markdownTable(rows)}\n\n`;
+      },
+    });
+    return td;
+  };
+
   // -- Segmented bar --
 
   // Renders a phone-storage-style horizontal segmented bar into `container`.
