@@ -134,6 +134,7 @@ A guided editor for creating Claude Code skill files (`SKILL.md`). Write your sk
 Designed for instructors and students who may not know markdown — the editor handles formatting and shows the underlying markdown as a live read-only preview.
 
 **Features:**
+- Start from a file: drop a `.docx`, `.md`, or `.txt` and it fills in the editor. Word formatting becomes Markdown (or Markdown typed into Word is kept as-is); frontmatter is read with or without `---` markers; an invalid name is renamed to fit the rules (or one is suggested from the first heading or file name); an import report lists what was found, fixed, or still needed and updates as you edit
 - Rich-text editor (headings, bold/italic/strikethrough, lists, task lists, tables, code blocks, links)
 - Side-by-side layout (WYSIWYG + live markdown preview) or tabbed layout (switch between WYSIWYG and raw markdown)
 - Frontmatter fields (name, description) kept separate from the rich-text body
@@ -193,6 +194,7 @@ python3 -m http.server 5173
 Open these pages in a browser (served or straight from disk). There's no test framework; results appear on the page and in the tab title.
 
 - `tests/filenames.html`: filename suggestion, cleanup and validation, and URL resolution.
+- `tests/skill-format.html`: SKILL Creator name rules, frontmatter reading, and `.md`/`.txt`/`.docx` import.
 - `tests/script-hash.html`: format checks for the Batch Download script, and its SHA-256. **Whenever `download-files.ps1` changes**, copy the new value into the script fingerprint under [Batch Download](#batch-download).
 - `tests/fixtures/README.md`: manual checks that run the script against hostile input (`hostile.csv`) and a local test server.
 
@@ -249,6 +251,7 @@ These are pinned to fixed versions and limited by the CSP, but a compromised cop
 - [ ] Add links for installing skill files in Claude Code, ChatGPT, and other platforms
 - [ ] Decide on default editor layout — side-by-side preview vs. tabbed WYSIWYG/markdown — or expose the choice as a user preference
 - [ ] General copy and UX polish
+- [ ] Import an existing skill `.zip` to edit it, and optionally attach extra files (`references/`, `scripts/`, `assets/`) to the export
 
 ## Stack
 

@@ -42,7 +42,7 @@
   function buildFullContent(name, description, extraFields, body) {
     const lines = ['---'];
     if (name)        lines.push(`name: ${name}`);
-    if (description) lines.push(`description: ${description}`);
+    if (description) lines.push(`description: ${yamlScalar(description)}`);
     lines.push(...extraFieldsLines(extraFields));
     lines.push('---');
     const fm = lines.join('\n');
@@ -70,22 +70,7 @@
     });
   }
 
-  // ── Validation ───────────────────────────────────────────────────────────
-
-  const NAME_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
-
-  function validateName(name) {
-    if (!name) return 'Name is required.';
-    if (name.length > 64) return 'Name must be 64 characters or fewer.';
-    if (!NAME_RE.test(name)) return 'Use lowercase letters, numbers, and hyphens only — must not start or end with a hyphen.';
-    return null;
-  }
-
-  function validateDescription(description) {
-    if (!description) return 'Description is required.';
-    if (description.length > 1024) return 'Description must be 1024 characters or fewer.';
-    return null;
-  }
+  const { validateName, validateDescription } = ns.skillFormat;
 
   async function downloadZip(name, content) {
     const slug = toSlug(name);
@@ -127,6 +112,29 @@
     render(root) {
       root.innerHTML = `
         <div class="skill-creator" data-sc-root>
+
+          <!-- Import -->
+          <details class="panel skill-import-panel" data-sc-import-panel>
+            <summary class="panel-header skill-import-toggle">
+              <span class="panel-title">Start from a file <span class="field-hint">(optional: .docx, .md, or .txt)</span></span>
+            </summary>
+            <div class="skill-import-body" data-sc-import-body>
+              <div class="drop-area skill-import-drop" data-sc-drop role="button" tabindex="0" aria-label="Choose a .docx, .md, or .txt file to import">
+                <span class="drop-icon">FILE</span>
+                <strong class="primary-text">Drop a .docx, .md, or .txt file here</strong>
+                <span class="hint">or click to choose. It fills in the fields below and checks them. Nothing is uploaded.</span>
+                <input type="file" accept="${ns.skillFormat.ACCEPT}" data-sc-file hidden>
+              </div>
+              <p class="converter-error" role="alert" data-sc-import-error hidden></p>
+              <div class="skill-import-report" data-sc-import-report hidden>
+                <div class="skill-import-report-head">
+                  <strong data-sc-import-title></strong>
+                  <button type="button" class="btn btn-subtle btn-sm extra-remove-btn" data-sc-import-dismiss aria-label="Hide import report">&times;</button>
+                </div>
+                <ul class="skill-import-list" data-sc-import-list></ul>
+              </div>
+            </div>
+          </details>
 
           <!-- Metadata -->
           <div class="panel skill-meta-panel">
@@ -314,6 +322,14 @@
       const layoutToggle   = $('[data-layout-toggle]',    root);
       const extraFieldsEl   = $('[data-sc-extra-meta]',      root);
       const extraFieldsList = $('[data-extra-fields-list]',  root);
+      const importPanel     = $('[data-sc-import-panel]',    root);
+      const importBody      = $('[data-sc-import-body]',     root);
+      const dropzone        = $('[data-sc-drop]',            root);
+      const fileInput       = $('[data-sc-file]',            root);
+      const importError     = $('[data-sc-import-error]',    root);
+      const importReport    = $('[data-sc-import-report]',   root);
+      const importTitle     = $('[data-sc-import-title]',    root);
+      const importList      = $('[data-sc-import-list]',     root);
 
       // ── Editor lifecycle ────────────────────────────────────────────────
 
@@ -367,6 +383,17 @@
       let extraFields = [];
       let extraFieldSeq = 0;
       const newFieldId = () => `ef${++extraFieldSeq}`;
+
+      // Gives restored or imported fields fresh row ids.
+      function withIds(fields) {
+        return (fields || []).map((f) => ({
+          id: newFieldId(),
+          name: f.name || '',
+          kind: f.kind === 'group' ? 'group' : 'text',
+          value: f.value || '',
+          subFields: (f.subFields || []).map((sf) => ({ id: newFieldId(), name: sf.name || '', value: sf.value || '' })),
+        }));
+      }
 
       function cloneExtraFields() {
         return extraFields.map((f) => ({ ...f, subFields: (f.subFields || []).map((sf) => ({ ...sf })) }));
@@ -440,7 +467,105 @@
         preview.textContent = buildFullContent(name, description, ef, body);
         // Persist draft so navigating away and back doesn't clear the fields
         ns.skillCreatorDraft = { name, description, extraFields: ef, body };
+        renderImportReport();
       }
+
+      // ── Import from file ────────────────────────────────────────────────
+      //
+      // The report lists what the import found or fixed (fixed at import
+      // time), then checks that re-run on every change, so a "Needed" item
+      // turns into a tick once the user fills it in.
+
+      let importState = null; // { fileName, notes }
+
+      const BADGES = { ok: '✓', fixed: 'Fixed', warn: 'Check', needs: 'Needed' };
+
+      function liveChecks() {
+        const { name, description, body } = getValues();
+        const nameErr = validateName(name);
+        const descErr = validateDescription(description);
+        const items = [];
+        items.push(nameErr
+          ? { level: 'needs', text: `Name: ${nameErr}`, focus: 'name' }
+          : { level: 'ok', text: `Exports as ${name}.zip containing ${name}/SKILL.md, whatever the original file was called.` });
+        items.push(descErr
+          ? { level: 'needs', text: descErr === 'Description is required.'
+              ? 'Add a description: what the skill does and when to use it. The AI reads this to decide when to load the skill.'
+              : `Description: ${descErr} (now ${description.length}).`, focus: 'desc' }
+          : { level: 'ok', text: `Description is set (${description.length}/1024 characters).` });
+        for (const text of ns.skillFormat.platformWarnings(name, description)) items.push({ level: 'warn', text });
+        const lines = body ? body.split('\n').length : 0;
+        if (!lines) items.push({ level: 'needs', text: 'No instructions found after the frontmatter. Add them in the Content editor.' });
+        else if (lines > ns.skillFormat.BODY_LINE_LIMIT) items.push({ level: 'warn', text: `The instructions are ${lines} lines. Skills work best under ${ns.skillFormat.BODY_LINE_LIMIT}; consider trimming.` });
+        return items;
+      }
+
+      function renderImportReport() {
+        importReport.hidden = !importState;
+        importBody.classList.toggle('has-report', !!importState);
+        if (!importState) return;
+        importTitle.textContent = `Imported ${importState.fileName}`;
+        importList.innerHTML = [...importState.notes, ...liveChecks()].map((item) => `
+          <li class="skill-import-item is-${item.level}">
+            <span class="skill-import-badge">${BADGES[item.level]}</span>
+            <span>${escapeHtml(item.text)}${item.focus
+              ? ` <button type="button" class="skill-import-fix" data-sc-focus="${item.focus}">Fix</button>`
+              : ''}</span>
+          </li>
+        `).join('');
+      }
+
+      async function importSkillFile(file) {
+        if (!file) return;
+        importError.hidden = true;
+        const current = getValues();
+        if ((current.name || current.description || current.extraFields.length || current.body)
+          && !confirm(`Replace what's in the editor with “${file.name}”?`)) return;
+
+        let result;
+        try {
+          result = await ns.skillFormat.importFile(file);
+        } catch (err) {
+          importError.textContent = err.message || 'That file could not be read.';
+          importError.hidden = false;
+          return;
+        }
+
+        nameInput.value = result.name;
+        descInput.value = result.description;
+        extraFields = withIds(result.extraFields);
+        renderExtraFields();
+        if (extraFields.length) extraFieldsEl.open = true;
+        importState = { fileName: file.name, notes: result.notes };
+        editor.setMarkdown(result.body, false); // false: don't move focus into the editor
+        refresh();
+        if (!validateFields()) (validateName(nameInput.value.trim()) ? nameInput : descInput).focus();
+      }
+
+      dropzone.addEventListener('click', () => fileInput.click());
+      dropzone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+      // The panel starts collapsed, so it accepts a drop anywhere on it
+      // (including the closed header) and opens to show the report.
+      ['dragenter', 'dragover'].forEach((t) => importPanel.addEventListener(t, (e) => { e.preventDefault(); importPanel.classList.add('drag-over'); }));
+      ['dragleave', 'drop'].forEach((t) => importPanel.addEventListener(t, (e) => { e.preventDefault(); importPanel.classList.remove('drag-over'); }));
+      importPanel.addEventListener('drop', (e) => {
+        importPanel.open = true;
+        importSkillFile(e.dataTransfer.files[0]);
+      });
+      fileInput.addEventListener('change', () => {
+        importSkillFile(fileInput.files[0]);
+        fileInput.value = ''; // so choosing the same file again still fires
+      });
+
+      importReport.addEventListener('click', (e) => {
+        if (e.target.closest('[data-sc-import-dismiss]')) {
+          importState = null;
+          renderImportReport();
+          return;
+        }
+        const fix = e.target.closest('[data-sc-focus]');
+        if (fix) (fix.dataset.scFocus === 'name' ? nameInput : descInput).focus();
+      });
 
       // ── Initial render ───────────────────────────────────────────────────
 
@@ -448,14 +573,7 @@
       const pending = ns.pendingSkillSession || null;
       ns.pendingSkillSession = null;
       const draft = !pending ? (ns.skillCreatorDraft || null) : null;
-      const restoredExtraFields = (pending?.extraFields || draft?.extraFields || []);
-      extraFields = restoredExtraFields.map((f) => ({
-        id: newFieldId(),
-        name: f.name || '',
-        kind: f.kind === 'group' ? 'group' : 'text',
-        value: f.value || '',
-        subFields: (f.subFields || []).map((sf) => ({ id: newFieldId(), name: sf.name || '', value: sf.value || '' })),
-      }));
+      extraFields = withIds(pending?.extraFields || draft?.extraFields);
       renderExtraFields();
 
       createEditor('split', pending?.body || draft?.body || '');
@@ -591,6 +709,8 @@
         extraFields = [];
         renderExtraFields();
         ns.skillCreatorDraft = null;
+        importState = null;
+        importError.hidden = true;
         refresh();
         validateFields();
       });
