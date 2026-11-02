@@ -112,6 +112,27 @@
     eq([s.ext, s.kind], ["auto", "unknown"]);
   });
 
+  test("download-marker URLs (/dl, /download) are documents with type auto", () => {
+    for (const url of [
+      "https://www.justice.gov/media/1380311/dl",
+      "https://www.justice.gov/atr/media/1336856/dl?inline",
+      "https://x.org/media/123/download",
+      "https://x.org/files/9/Attachment",
+    ]) {
+      const s = F.suggest("Complaint", url);
+      eq([s.ext, s.kind], ["auto", "document"], url);
+    }
+    ok(!F.isDownloadLink("https://x.org/dl/"), "folder isn't a download");
+    eq(F.suggest("Downloads", "https://x.org/dl/").kind, "page");
+    eq(F.suggest("Report", "https://x.org/download/report.docx").ext, "docx");
+  });
+
+  test("download-marker URLs are named from the segment before the marker", () => {
+    eq(F.suggest("", "https://www.justice.gov/media/1380311/dl").filename, "1380311");
+    eq(F.suggest("Nice title", "https://www.justice.gov/media/1279416/dl?inline", { nameFrom: "url" }).filename, "1279416");
+    eq(F.suggest("", "https://x.org/dl").filename, "dl");
+  });
+
   test("blocked types", () => {
     eq(F.suggest("Setup", "https://x.org/setup.EXE").kind, "blocked");
     eq(F.suggest("Link", "https://x.org/a.lnk").kind, "blocked");

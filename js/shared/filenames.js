@@ -15,6 +15,9 @@
   const ALLOWED = new Set(ALLOWED_EXTS);
   const WARN_EXTS = new Set(["zip"]);
   const WEBPAGE_EXTS = new Set(["htm", "html", "shtml", "xhtml", "asp", "aspx", "php", "jsp", "jspx", "cfm", "cgi", "pl"]);
+  // Last path segments that mark a file download with no extension in the
+  // URL, e.g. Drupal's /media/1380311/dl or /media/123/download.
+  const DOWNLOAD_SEGMENTS = new Set(["dl", "download", "attachment"]);
   const RESERVED = new Set([
     "CON", "PRN", "AUX", "NUL",
     ..."123456789".split("").map((d) => `COM${d}`),
@@ -45,14 +48,39 @@
     try { return decodeURIComponent(value); } catch { return value; }
   }
 
+  // Non-empty path segments of a URL, percent-decoded ([] if none).
+  function urlSegments(url) {
+    try {
+      return new URL(url).pathname.split("/").filter(Boolean).map(safeDecode);
+    } catch {
+      return [];
+    }
+  }
+
   // Last non-empty path segment of a URL, percent-decoded ("" if none).
   function urlLastSegment(url) {
+    const segments = urlSegments(url);
+    return segments.length ? segments[segments.length - 1] : "";
+  }
+
+  // True when the URL ends in a download marker like /dl or /download
+  // (not a folder like /dl/).
+  function isDownloadLink(url) {
     try {
-      const segments = new URL(url).pathname.split("/").filter(Boolean);
-      return segments.length ? safeDecode(segments[segments.length - 1]) : "";
+      if (new URL(url).pathname.endsWith("/")) return false;
     } catch {
-      return "";
+      return false;
     }
+    return DOWNLOAD_SEGMENTS.has(urlLastSegment(url).toLowerCase());
+  }
+
+  // Segment to name a file after when using the URL: the last one, or for
+  // /media/1380311/dl the one before the marker ("1380311", not "dl").
+  function urlNameSegment(url) {
+    const segments = urlSegments(url);
+    const last = segments.length ? segments[segments.length - 1] : "";
+    if (segments.length > 1 && DOWNLOAD_SEGMENTS.has(last.toLowerCase())) return segments[segments.length - 2];
+    return last;
   }
 
   function splitExt(name) {
@@ -64,24 +92,26 @@
   // that looks like a filename (e.g. ?file=report.pdf), else "auto" (the
   // script works the type out after downloading).
   // `source` is "path" | "query" | "none"; `pathLike` is true when the URL
-  // path looks like a web page folder ("/", "/en/about/").
+  // path looks like a web page folder ("/", "/en/about/"); `downloadLink` is
+  // true when it ends in a download marker (/dl, /download).
   function detectExtension(url) {
     let parsed;
-    try { parsed = new URL(url); } catch { return { ext: "auto", source: "none", pathLike: false }; }
+    try { parsed = new URL(url); } catch { return { ext: "auto", source: "none", pathLike: false, downloadLink: false }; }
     const pathExt = splitExt(urlLastSegment(url)).ext;
-    if (pathExt) return { ext: pathExt, source: "path", pathLike: false };
+    if (pathExt) return { ext: pathExt, source: "path", pathLike: false, downloadLink: false };
     for (const value of parsed.searchParams.values()) {
       const qExt = splitExt(value.trim()).ext;
-      if (qExt && (ALLOWED.has(qExt) || WEBPAGE_EXTS.has(qExt))) return { ext: qExt, source: "query", pathLike: false };
+      if (qExt && (ALLOWED.has(qExt) || WEBPAGE_EXTS.has(qExt))) return { ext: qExt, source: "query", pathLike: false, downloadLink: false };
     }
     const pathLike = parsed.pathname === "" || parsed.pathname.endsWith("/");
-    return { ext: "auto", source: "none", pathLike };
+    return { ext: "auto", source: "none", pathLike, downloadLink: isDownloadLink(url) };
   }
 
-  // "document" (allowed type) | "page" (web page) | "unknown" (no type
-  // found) | "blocked" (a type this tool won't download).
-  function classifyExtension(ext, pathLike) {
-    if (ext === "auto") return pathLike ? "page" : "unknown";
+  // "document" (allowed type, or a download link whose type the script
+  // works out) | "page" (web page) | "unknown" (no type found) | "blocked"
+  // (a type this tool won't download).
+  function classifyExtension(ext, pathLike, downloadLink = false) {
+    if (ext === "auto") return pathLike ? "page" : downloadLink ? "document" : "unknown";
     if (ALLOWED.has(ext)) return "document";
     if (WEBPAGE_EXTS.has(ext)) return "page";
     return "blocked";
@@ -145,7 +175,7 @@
     const label = decodeEntities(visibleText || "").replace(/\s+/g, " ").trim();
     const useUrl = nameFrom === "url" || !hasUsableLabel(label, url);
 
-    let raw = useUrl ? splitExt(urlLastSegment(url)).base : label;
+    let raw = useUrl ? splitExt(urlNameSegment(url)).base : label;
     // Don't double the extension ("report.pdf" + ".pdf").
     if (ext !== "auto") {
       const own = splitExt(raw);
@@ -153,7 +183,7 @@
     }
     const maxBase = MAX_LENGTH - (ext === "auto" ? 0 : ext.length + 1);
     const { name, notes } = sanitizeName(raw, { maxBase, fallback: `file-${n}` });
-    return { filename: name, ext, notes, kind: classifyExtension(ext, detected.pathLike) };
+    return { filename: name, ext, notes, kind: classifyExtension(ext, detected.pathLike, detected.downloadLink) };
   }
 
   function fullName(filename, ext) {
@@ -248,6 +278,8 @@
     isWebpageExt: (ext) => WEBPAGE_EXTS.has(ext),
     decodeEntities,
     urlLastSegment,
+    urlNameSegment,
+    isDownloadLink,
     splitExt,
     detectExtension,
     classifyExtension,
