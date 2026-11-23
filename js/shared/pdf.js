@@ -96,6 +96,20 @@
     return links;
   };
 
+  // Document-level metadata for the Metadata Viewer: the Info dictionary
+  // (Title, Author, Producer, dates, any custom keys under info.Custom) and
+  // the raw XMP packet when present.
+  ns.extractPdfMetadata = async function extractPdfMetadata(buffer) {
+    const pdfjs = await loadPdfjs();
+    const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+    const { info, metadata } = await doc.getMetadata();
+    return {
+      info: info || {},
+      xmp: metadata && typeof metadata.getRaw === "function" ? metadata.getRaw() : "",
+      pageCount: doc.numPages,
+    };
+  };
+
   // Whole document. rawText is the intentionally naive "before" baseline:
   // per-page lines joined with newlines, pages separated by a blank line, with
   // repeated headers/footers, page numbers, and broken line wraps left in.
