@@ -141,6 +141,22 @@ Designed for instructors and students who may not know markdown — the editor h
 - Save drafts to History, copy markdown to clipboard, or export as ZIP
 - Skill entries in History can be restored back into the editor
 
+### Metadata Viewer
+
+Drop in a Word, Excel, PowerPoint, or PDF file and see every metadata field it carries, at full length. Word's Advanced Properties dialog truncates long custom-property names and values and can't be resized; this shows them all and lets you copy any value.
+
+**Shows:**
+- **Custom properties** (`docProps/custom.xml`), with their types: e.g. AI-provenance fields some legal AI tools stamp on exported documents
+- **Summary properties** (`docProps/core.xml`): title, author, last modified by, created/modified dates (also shown in your local time), revision
+- **Application properties** (`docProps/app.xml`): app and version, template, word/page counts
+- **Sensitivity labels** (`docMetadata/LabelInfo.xml`), when present
+- **Word only:** hidden document variables, track-changes/protection/attached-template settings, editing-session (rsid) count, and the names stored with comments and tracked changes
+- **Custom XML parts** (`customXml/item*.xml`), such as SharePoint document-library fields
+- **PDF:** the Info dictionary (including non-standard keys) and the XMP metadata packet
+- **Package contents:** every part inside an Office file, with sizes
+
+Filter across all fields, copy single values, or export everything as JSON. Raw XML is available under each section. Other file types show basic file info only.
+
 ### Curriculum Planner
 
 Plan an AI curriculum using the AI-Ready Lawyer framework. Drag competency notes into module boxes, add or remove modules, collapse framework sections, and import/export plans as JSON.
